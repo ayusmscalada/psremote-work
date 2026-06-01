@@ -4,6 +4,7 @@ import { apiFetch } from "../api";
 import JobSpreadsheet from "./JobSpreadsheet";
 import JobModal from "./JobModal";
 import ScreenshotModal from "./ScreenshotModal";
+import CustomerProfileView from "./CustomerProfileView";
 
 export default function CustomerDetailPanel({
   customer,
@@ -92,19 +93,15 @@ export default function CustomerDetailPanel({
       </div>
 
       {activeTab === "profile" && profile && (
-        <div className="card profile-card">
-          <div className="profile-row">
-            <span className="profile-label">Username</span>
-            <span>{profile.username}</span>
-          </div>
-          <div className="profile-row">
-            <span className="profile-label">Role</span>
-            <span className="role-badge role-customer">Customer</span>
-          </div>
-          <div className="profile-row">
-            <span className="profile-label">Job applications</span>
-            <span>{profile.applicationCount}</span>
-          </div>
+        <div className="card profile-card customer-profile-card">
+          <CustomerProfileView
+            profile={profile}
+            extraRows={[
+              { label: "Username", value: profile.username },
+              { label: "Role", value: <span className="role-badge role-customer">Customer</span> },
+              { label: "Job applications", value: profile.applicationCount },
+            ]}
+          />
         </div>
       )}
 

@@ -32,7 +32,22 @@ async function seed() {
     .from("users")
     .insert([
       { username: "admin", password: await passwordHash("admin123"), role: "admin" },
-      { username: "customer", password: await passwordHash("customer123"), role: "customer" },
+      { username: "customer", password: await passwordHash("customer123"), role: "customer",
+        tech_stack: "React, Node.js, PostgreSQL",
+        email: "customer@example.com",
+        phone: "+1 555 010 0200",
+        linkedin: "https://linkedin.com/in/demo-customer",
+        github: "https://github.com/demo-customer",
+        street: "123 Main St",
+        city: "Austin",
+        state: "TX",
+        ssn_last4: "1234",
+        date_of_birth: "1990-05-15",
+        hourly_rate_range: "$50–$80/hr",
+        salary_range: "$100k–$150k",
+        citizenship: "US",
+        nationality: "American",
+      },
       { username: "worker", password: await passwordHash("worker123"), role: "worker" },
     ])
     .select("*");

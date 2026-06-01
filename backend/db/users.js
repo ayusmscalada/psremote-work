@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { supabase } from "../supabase/client.js";
+import { customerProfileToRow, pickCustomerProfile } from "./customerProfile.js";
 import { mapUser } from "./mappers.js";
 
 export function sanitizeUser(user) {
@@ -48,22 +49,31 @@ export async function usernameExists(username, excludeId = null) {
   return (data || []).length > 0;
 }
 
-export async function createUser({ username, password, role }) {
+export async function createUser({ username, password, role, ...rest }) {
   const passwordHash = await bcrypt.hash(password, 10);
-  const { data, error } = await supabase
-    .from("users")
-    .insert({ username: username.trim(), password: passwordHash, role })
-    .select("*")
-    .single();
+  const row = {
+    username: username.trim(),
+    password: passwordHash,
+    role,
+  };
+
+  if (role === "customer") {
+    Object.assign(row, customerProfileToRow(pickCustomerProfile(rest)));
+  }
+
+  const { data, error } = await supabase.from("users").insert(row).select("*").single();
 
   if (error) throw new Error(error.message);
   return sanitizeUser(mapUser(data));
 }
 
-export async function updateUser(id, { username, password }) {
+export async function updateUser(id, { username, password, ...rest }) {
   const updates = {};
   if (username?.trim()) updates.username = username.trim();
   if (password) updates.password = await bcrypt.hash(password, 10);
+
+  const profileUpdates = customerProfileToRow(pickCustomerProfile(rest));
+  Object.assign(updates, profileUpdates);
 
   const { data, error } = await supabase
     .from("users")

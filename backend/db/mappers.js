@@ -1,3 +1,5 @@
+import { mapCustomerProfileFromRow } from "./customerProfile.js";
+
 export function mapUser(row) {
   if (!row) return null;
   return {
@@ -5,6 +7,7 @@ export function mapUser(row) {
     username: row.username,
     password: row.password,
     role: row.role,
+    ...mapCustomerProfileFromRow(row),
   };
 }
 

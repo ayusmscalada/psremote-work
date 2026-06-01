@@ -28,7 +28,7 @@ const sectionMeta = {
   },
   customers: {
     title: "Customers",
-    description: "Create, update, and remove customer accounts.",
+    description: "Create, view, update, and delete customer accounts and profile details.",
   },
   access: {
     title: "Worker Access",

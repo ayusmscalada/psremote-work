@@ -1,7 +1,20 @@
--- Run this in Supabase SQL Editor if job create fails with screenshot_link error.
--- Or: npm run db:migrate (requires SUPABASE_DB_PASSWORD in backend/.env)
+-- Run via: npm run db:patch
 
 ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS screenshot_link TEXT;
 
--- Reload PostgREST schema cache (Supabase)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS tech_stack TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS linkedin TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS github TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS street TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS state TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ssn_last4 TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS hourly_rate_range TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS salary_range TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS citizenship TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nationality TEXT;
+
 NOTIFY pgrst, 'reload schema';

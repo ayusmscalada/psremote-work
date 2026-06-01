@@ -4,6 +4,7 @@ import { apiFetch } from "../api";
 import { useAuth } from "../context/AuthContext";
 import AppShell from "../components/AppShell";
 import JobList from "../components/JobList";
+import CustomerSelfProfilePanel from "../components/CustomerSelfProfilePanel";
 import "../components/AppShell.css";
 import "./CustomerDashboard.css";
 
@@ -24,12 +25,12 @@ const sectionMeta = {
   },
   profile: {
     title: "Profile",
-    description: "Your account information.",
+    description: "View and update your account and profile information.",
   },
 };
 
 export default function CustomerDashboard() {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState(
@@ -37,16 +38,19 @@ export default function CustomerDashboard() {
   );
   const [overview, setOverview] = useState(null);
   const [applications, setApplications] = useState([]);
+  const [profile, setProfile] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function loadAll() {
-    const [overviewData, appsData] = await Promise.all([
+    const [overviewData, appsData, meData] = await Promise.all([
       apiFetch("/customer/overview", { token }),
       apiFetch("/customer/applications", { token }),
+      apiFetch("/me", { token }),
     ]);
     setOverview(overviewData.stats);
     setApplications(appsData.applications);
+    setProfile(meData.user);
   }
 
   useEffect(() => {
@@ -122,23 +126,13 @@ export default function CustomerDashboard() {
 
       case "profile":
         return (
-          <div className="app-panel profile-card">
-            <div className="profile-row">
-              <span className="profile-label">Username</span>
-              <span>{user.username}</span>
-            </div>
-            <div className="profile-row">
-              <span className="profile-label">Role</span>
-              <span className="role-badge role-customer">Customer</span>
-            </div>
-            <div className="profile-row">
-              <span className="profile-label">Job applications</span>
-              <span>{overview?.applications ?? 0}</span>
-            </div>
-            <div className="profile-row">
-              <span className="profile-label">Assigned workers</span>
-              <span>{overview?.workersWithAccess ?? 0}</span>
-            </div>
+          <div className="app-panel profile-card customer-profile-card">
+            <CustomerSelfProfilePanel
+              profile={profile}
+              token={token}
+              overview={overview}
+              onProfileUpdated={setProfile}
+            />
           </div>
         );
 

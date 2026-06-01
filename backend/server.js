@@ -37,9 +37,11 @@ import {
   deleteUser,
   findUserById,
   getUsersByRole,
+  sanitizeUser,
   updateUser,
   usernameExists,
 } from "./db/users.js";
+import { buildCustomerProfileResponse, pickCustomerProfile, validateCustomerProfile } from "./db/customerProfile.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -141,7 +143,17 @@ function createRoleRoutes(role) {
         return res.status(409).json({ error: "Username already exists" });
       }
 
-      const user = await createUser({ username, password, role });
+      if (role === "customer") {
+        const profileError = validateCustomerProfile(req.body);
+        if (profileError) return res.status(400).json({ error: profileError });
+      }
+
+      const user = await createUser({
+        username: req.body.username,
+        password: req.body.password,
+        role,
+        ...(role === "customer" ? req.body : {}),
+      });
       res.status(201).json({ user });
     })
   );
@@ -164,7 +176,16 @@ function createRoleRoutes(role) {
         return res.status(409).json({ error: "Username already exists" });
       }
 
-      const updated = await updateUser(user.id, { username, password });
+      if (role === "customer") {
+        const profileError = validateCustomerProfile(req.body);
+        if (profileError) return res.status(400).json({ error: profileError });
+      }
+
+      const updated = await updateUser(user.id, {
+        username: req.body.username,
+        password: req.body.password,
+        ...(role === "customer" ? req.body : {}),
+      });
       res.json({ user: updated });
     })
   );
@@ -238,9 +259,13 @@ app.post(
   })
 );
 
-app.get("/api/me", authMiddleware, (req, res) => {
-  res.json({ user: req.user });
-});
+app.get("/api/me", authMiddleware, asyncHandler(async (req, res) => {
+  const user = await findUserById(req.user.id);
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+  res.json({ user: sanitizeUser(user) });
+}));
 
 app.put(
   "/api/me",
@@ -255,6 +280,11 @@ app.put(
     const validationError = validateCredentials(username, password, false);
     if (validationError) {
       return res.status(400).json({ error: validationError });
+    }
+
+    if (user.role === "customer") {
+      const profileError = validateCustomerProfile(req.body);
+      if (profileError) return res.status(400).json({ error: profileError });
     }
 
     if (password) {
@@ -272,7 +302,13 @@ app.put(
       return res.status(409).json({ error: "Username already exists" });
     }
 
-    const updated = await updateUser(user.id, { username, password });
+    const updatePayload = {
+      username,
+      password,
+      ...(user.role === "customer" ? pickCustomerProfile(req.body) : {}),
+    };
+
+    const updated = await updateUser(user.id, updatePayload);
     const token = jwt.sign(
       { id: updated.id, username: updated.username, role: updated.role },
       JWT_SECRET,
@@ -418,11 +454,9 @@ app.get(
     const applications = await getWorkerApplications(workerId, customerId);
 
     res.json({
-      profile: {
-        id: customer.id,
-        username: customer.username,
+      profile: buildCustomerProfileResponse(customer, {
         applicationCount: applications.length,
-      },
+      }),
       applications: applications.map(formatApplication),
     });
   })

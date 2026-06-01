@@ -122,6 +122,25 @@
   font-size: 0.875rem;
 }
 
+.profile-row-stack {
+  align-items: flex-start;
+}
+
+.profile-tech-stack {
+  text-align: right;
+  max-width: 280px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tech-stack-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;

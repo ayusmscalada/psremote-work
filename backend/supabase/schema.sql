@@ -3,8 +3,37 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('admin', 'customer', 'worker')),
+  tech_stack TEXT,
+  phone TEXT,
+  linkedin TEXT,
+  github TEXT,
+  email TEXT,
+  street TEXT,
+  city TEXT,
+  state TEXT,
+  ssn_last4 TEXT,
+  date_of_birth TEXT,
+  hourly_rate_range TEXT,
+  salary_range TEXT,
+  citizenship TEXT,
+  nationality TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS tech_stack TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS linkedin TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS github TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS street TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS state TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ssn_last4 TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS hourly_rate_range TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS salary_range TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS citizenship TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nationality TEXT;
 
 CREATE TABLE IF NOT EXISTS worker_allowances (
   worker_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
