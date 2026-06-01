@@ -1,4 +1,4 @@
-export const API_BASE = "http://localhost:3001/api";
+export { API_BASE } from "./config";
 
 export const BID_STATUSES = [
   { value: "not_yet", label: "Not Yet" },

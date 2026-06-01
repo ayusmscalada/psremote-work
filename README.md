@@ -28,7 +28,17 @@ npm run db:seed
 
 `db:seed` will also run the migration automatically if tables are missing (when `SUPABASE_DB_PASSWORD` is set).
 
-### 2. Run the app
+### 2. Configure frontend (optional)
+
+Copy `frontend/.env.example` to `frontend/.env` and set the API URL if the backend is not on `http://localhost:3001`:
+
+```env
+VITE_API_BASE_URL=http://localhost:3001/api
+```
+
+Restart the Vite dev server after changing `.env`.
+
+### 3. Run the app
 
 Install dependencies:
 

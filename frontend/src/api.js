@@ -1,4 +1,4 @@
-import { API_BASE } from "./constants";
+import { API_BASE } from "./config";
 
 export async function apiFetch(path, { token, ...options } = {}) {
   const headers = {
