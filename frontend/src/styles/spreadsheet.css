@@ -1,0 +1,243 @@
+/* Google Sheets / Excel style grid */
+
+.spreadsheet-wrap {
+  overflow: auto;
+  border: 1px solid #dadce0;
+  border-radius: 2px;
+  background: #ffffff;
+  color: #202124;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.15);
+}
+
+.spreadsheet {
+  width: 100%;
+  min-width: 960px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.spreadsheet th,
+.spreadsheet td {
+  border: 1px solid #dadce0;
+  padding: 0 8px;
+  height: 34px;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spreadsheet thead th {
+  background: #f8f9fa;
+  color: #5f6368;
+  font-weight: 500;
+  font-size: 12px;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-shadow: inset 0 -1px 0 #dadce0;
+}
+
+.spreadsheet .sheet-corner {
+  width: 46px;
+  min-width: 46px;
+  background: #f8f9fa;
+}
+
+.spreadsheet .row-num {
+  width: 46px;
+  min-width: 46px;
+  background: #f8f9fa;
+  color: #5f6368;
+  text-align: center;
+  font-size: 12px;
+  user-select: none;
+}
+
+.spreadsheet tbody tr {
+  cursor: pointer;
+}
+
+.spreadsheet tbody tr:hover td:not(.row-num) {
+  background: #e8f0fe;
+}
+
+.spreadsheet tbody tr:hover .row-num {
+  background: #d2e3fc;
+  color: #1967d2;
+}
+
+.spreadsheet tbody tr.sheet-row-active td:not(.row-num) {
+  background: #d2e3fc;
+}
+
+.spreadsheet tbody tr.sheet-row-active .row-num {
+  background: #aecbfa;
+  color: #1967d2;
+  font-weight: 600;
+}
+
+.spreadsheet .col-title {
+  width: 22%;
+}
+
+.spreadsheet .col-company {
+  width: 14%;
+}
+
+.spreadsheet .col-link {
+  width: 12%;
+}
+
+.spreadsheet .col-status {
+  width: 12%;
+}
+
+.spreadsheet .col-screenshot {
+  width: 12%;
+}
+
+.spreadsheet .col-actions {
+  width: 22%;
+}
+
+.spreadsheet td.action-cell {
+  overflow: visible;
+  white-space: normal;
+  padding: 4px 6px;
+}
+
+.spreadsheet .cell-text {
+  color: #202124;
+}
+
+.spreadsheet .cell-link a {
+  color: #1a73e8;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.spreadsheet .cell-link a:hover {
+  text-decoration: underline;
+}
+
+.spreadsheet .cell-muted {
+  color: #80868b;
+}
+
+.spreadsheet .sheet-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.spreadsheet .sheet-status-not_yet {
+  background: #f1f3f4;
+  color: #5f6368;
+  border-color: #dadce0;
+}
+
+.spreadsheet .sheet-status-expired {
+  background: #fef7e0;
+  color: #ea8600;
+  border-color: #fdd663;
+}
+
+.spreadsheet .sheet-status-completed {
+  background: #e6f4ea;
+  color: #137333;
+  border-color: #ceead6;
+}
+
+.spreadsheet .sheet-status-error {
+  background: #fce8e6;
+  color: #c5221f;
+  border-color: #f5c6c2;
+}
+
+.spreadsheet .sheet-yes {
+  color: #137333;
+  font-weight: 500;
+}
+
+.spreadsheet .sheet-no {
+  color: #80868b;
+}
+
+.spreadsheet .action-cell {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  align-items: center;
+  white-space: normal;
+}
+
+.spreadsheet .sheet-btn {
+  padding: 2px 8px;
+  border: 1px solid #dadce0;
+  border-radius: 2px;
+  background: #fff;
+  color: #3c4043;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  line-height: 1.6;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.spreadsheet .sheet-btn:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #bdc1c6;
+}
+
+.spreadsheet .sheet-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spreadsheet .sheet-btn-primary {
+  color: #1a73e8;
+  border-color: #aecbfa;
+  background: #e8f0fe;
+}
+
+.spreadsheet .sheet-btn-primary:hover:not(:disabled) {
+  background: #d2e3fc;
+}
+
+.spreadsheet .sheet-btn-danger {
+  color: #c5221f;
+  border-color: #f5c6c2;
+  background: #fce8e6;
+}
+
+.spreadsheet .sheet-btn-danger:hover:not(:disabled) {
+  background: #fad2cf;
+}
+
+.spreadsheet-empty {
+  padding: 2rem;
+  text-align: center;
+  color: #5f6368;
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 2px;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 13px;
+}
+
+.applications-toolbar--sheet {
+  margin-bottom: 0.5rem;
+}
+
+.applications-toolbar--sheet .card-meta {
+  color: var(--text-muted);
+}

@@ -1,0 +1,305 @@
+/* Shared data list & table UI */
+
+.data-table-wrap {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+}
+
+.data-table-wrap--scroll {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.data-table th {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.data-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.data-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table .empty-cell {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.data-table .action-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* Job list cards (replaces job tables) */
+
+.job-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.job-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 1rem 1.25rem;
+  padding: 1rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.job-card--clickable {
+  cursor: pointer;
+}
+
+.job-card--clickable:hover {
+  border-color: rgba(59, 130, 246, 0.45);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.job-card-main {
+  min-width: 0;
+}
+
+.job-card-title {
+  font-size: 0.98rem;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.job-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.job-card-company {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.job-card-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.job-card-link:hover {
+  text-decoration: underline;
+}
+
+.job-card-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+
+.job-card-worker {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.meta-pill--yes {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--success);
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.meta-pill--no {
+  background: rgba(139, 156, 179, 0.1);
+  color: var(--text-muted);
+  border-color: rgba(139, 156, 179, 0.2);
+}
+
+.job-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+/* Refined action buttons */
+
+.btn-action {
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn-action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.btn-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary-sm {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.btn-primary-sm:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn-edit {
+  color: var(--accent);
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.btn-screenshot {
+  color: #67e8f9;
+  border-color: rgba(6, 182, 212, 0.35);
+  background: rgba(6, 182, 212, 0.08);
+}
+
+.btn-delete {
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.btn-save {
+  color: var(--success);
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.btn-cancel {
+  color: var(--text-muted);
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.status-not_yet {
+  background: rgba(139, 156, 179, 0.15);
+  color: var(--text-muted);
+}
+
+.status-expired {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.status-completed {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--success);
+}
+
+.status-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.status-open {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--success);
+}
+
+.status-in_progress {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.status-pending {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent);
+}
+
+.list-empty {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+
+@media (max-width: 768px) {
+  .job-card {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+
+  .job-card-badges {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .job-card-actions {
+    justify-content: flex-start;
+  }
+}

@@ -1,0 +1,136 @@
+.job-detail-page {
+  max-width: 800px;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 1.25rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.back-link:hover {
+  color: var(--accent);
+}
+
+.job-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.job-detail-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.job-detail-card {
+  margin-bottom: 2rem;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.detail-item-full {
+  grid-column: 1 / -1;
+}
+
+.detail-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-item p {
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.detail-item a {
+  word-break: break-all;
+}
+
+.detail-empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.screenshot-detail {
+  max-width: 100%;
+  width: 320px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.job-description-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.job-description-heading {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+.job-description-body {
+  padding: 1.1rem 1.25rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  border-left: 3px solid var(--accent);
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height:  min(420px, 50vh);
+  overflow-y: auto;
+}
+
+.app-shell--worker .job-description-body {
+  border-left-color: var(--worker);
+}
+
+.app-shell--customer .job-description-body {
+  border-left-color: var(--customer);
+}
+
+.detail-section-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.65rem;
+}
+
+.detail-screenshot-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 640px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

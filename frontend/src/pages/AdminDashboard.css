@@ -1,0 +1,59 @@
+.user-crud {
+  margin-bottom: 0;
+}
+
+.user-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.user-form input,
+.data-table input {
+  padding: 0.55rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.9rem;
+  min-width: 160px;
+}
+
+.user-form input:focus,
+.data-table input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.password-mask {
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.allowance-panel {
+  margin-bottom: 0;
+}
+
+.allowance-help {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: -0.75rem 0 1rem;
+}
+
+.allowance-table th,
+.allowance-table td {
+  text-align: center;
+}
+
+.allowance-table th:first-child,
+.allowance-table td.worker-name {
+  text-align: left;
+}
+
+.checkbox-cell input {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--accent);
+}

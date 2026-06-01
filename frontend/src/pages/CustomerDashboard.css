@@ -1,0 +1,21 @@
+.profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-row:last-child {
+  border-bottom: none;
+}
+
+.profile-label {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.profile-card {
+  max-width: 480px;
+}
