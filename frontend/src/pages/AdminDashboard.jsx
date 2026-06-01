@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import AppShell from "../components/AppShell";
 import UserCrudPanel from "../components/UserCrudPanel";
 import WorkerAllowancePanel from "../components/WorkerAllowancePanel";
+import AdminProfilePanel from "../components/AdminProfilePanel";
 import "../components/AppShell.css";
 import "./AdminDashboard.css";
 
@@ -13,6 +14,7 @@ const adminNav = [
   { id: "customers", label: "Customers", icon: "◎" },
   { id: "access", label: "Worker Access", icon: "⇄" },
   { id: "jobs", label: "Jobs & Bids", icon: "☰" },
+  { id: "profile", label: "Profile", icon: "⚙" },
 ];
 
 const sectionMeta = {
@@ -35,6 +37,10 @@ const sectionMeta = {
   jobs: {
     title: "Jobs & Bids",
     description: "View all platform jobs and recent bids.",
+  },
+  profile: {
+    title: "Profile",
+    description: "Update your admin username and password.",
   },
 };
 
@@ -64,6 +70,15 @@ export default function AdminDashboard() {
   const meta = sectionMeta[activeSection];
 
   function renderContent() {
+    if (activeSection === "profile") {
+      if (error) return <div className="error-banner">{error}</div>;
+      return (
+        <div className="admin-panel">
+          <AdminProfilePanel token={token} />
+        </div>
+      );
+    }
+
     if (error) return <div className="error-banner">{error}</div>;
     if (!data) return <div className="loading-screen">Loading...</div>;
 

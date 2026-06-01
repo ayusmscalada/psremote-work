@@ -4,12 +4,6 @@ import { loginRequest } from "../api";
 import { useAuth } from "../context/AuthContext";
 import "./LoginPage.css";
 
-const demoAccounts = [
-  { role: "Admin", username: "admin", password: "admin123" },
-  { role: "Customer", username: "customer", password: "customer123" },
-  { role: "Worker", username: "worker", password: "worker123" },
-];
-
 export default function LoginPage() {
   const { user, login } = useAuth();
   const [username, setUsername] = useState("");
@@ -34,12 +28,6 @@ export default function LoginPage() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function fillDemo(account) {
-    setUsername(account.username);
-    setPassword(account.password);
-    setError("");
   }
 
   return (
@@ -82,23 +70,6 @@ export default function LoginPage() {
             {submitting ? "Signing in..." : "Sign in"}
           </button>
         </form>
-
-        <div className="demo-accounts">
-          <p className="demo-title">Demo accounts (no registration)</p>
-          <div className="demo-list">
-            {demoAccounts.map((account) => (
-              <button
-                key={account.username}
-                type="button"
-                className="demo-btn"
-                onClick={() => fillDemo(account)}
-              >
-                <span className="demo-role">{account.role}</span>
-                <span className="demo-creds">{account.username}</span>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

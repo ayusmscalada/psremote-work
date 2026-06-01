@@ -1,4 +1,5 @@
 import "dotenv/config";
+import bcrypt from "bcryptjs";
 import cors from "cors";
 import express from "express";
 import jwt from "jsonwebtoken";
@@ -240,6 +241,47 @@ app.post(
 app.get("/api/me", authMiddleware, (req, res) => {
   res.json({ user: req.user });
 });
+
+app.put(
+  "/api/me",
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const { username, password, currentPassword } = req.body;
+    const user = await findUserById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const validationError = validateCredentials(username, password, false);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
+    }
+
+    if (password) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: "Current password is required to set a new password" });
+      }
+      const fullUser = await findUserById(req.user.id);
+      const valid = await bcrypt.compare(currentPassword, fullUser.password);
+      if (!valid) {
+        return res.status(400).json({ error: "Current password is incorrect" });
+      }
+    }
+
+    if (username?.trim() && (await usernameExists(username.trim(), user.id))) {
+      return res.status(409).json({ error: "Username already exists" });
+    }
+
+    const updated = await updateUser(user.id, { username, password });
+    const token = jwt.sign(
+      { id: updated.id, username: updated.username, role: updated.role },
+      JWT_SECRET,
+      { expiresIn: "8h" }
+    );
+
+    res.json({ user: updated, token });
+  })
+);
 
 app.get(
   "/api/admin/overview",
