@@ -9,5 +9,5 @@ function normalizeBaseUrl(url) {
 const configured = import.meta.env.VITE_API_BASE_URL?.trim();
 
 export const API_BASE = normalizeBaseUrl(
-  configured || "https://psremote-work-qwbgpygk3-yevhen-reuts-projects.vercel.app/api"
+  configured || "http://localhost:3001/api"
 );

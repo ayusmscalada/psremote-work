@@ -44,7 +44,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
 
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(cors());
 app.use(express.json());
 
 function asyncHandler(handler) {
