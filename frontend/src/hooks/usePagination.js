@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 
+export const DEFAULT_PAGE = 1;
 export const DEFAULT_PAGE_SIZE = 10;
 export const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
+/** @deprecated Use server-side pagination via useServerPagination + API query params */
 export function usePagination(items, { pageSize: initialPageSize = DEFAULT_PAGE_SIZE, resetKey } = {}) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);

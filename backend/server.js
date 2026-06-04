@@ -14,6 +14,12 @@ import {
   deleteApplicationScreenshot,
   formatApplication,
 } from "./applications.js";
+import { parseApplicationFiltersQuery } from "./applicationFilters.js";
+import {
+  getDistinctWorkerUsernamesForCustomer,
+  listApplications,
+} from "./db/applicationList.js";
+import { buildPaginationMeta, parsePaginationQuery } from "./pagination.js";
 import {
   countApplicationsForCustomer,
   countCompletedApplicationsForCustomer,
@@ -21,8 +27,8 @@ import {
   deleteApplication,
   findApplicationById,
   findWorkerApplication,
-  getApplicationsForCustomer,
   getWorkerApplications,
+  reassignApplicationCustomer,
   updateApplication,
 } from "./db/applications.js";
 import {
@@ -31,6 +37,8 @@ import {
   getAllJobs,
   getBidsForJobIds,
   getJobsByCustomerId,
+  listBidsPaginated,
+  listJobsPaginated,
 } from "./db/jobs.js";
 import {
   authenticateUser,
@@ -38,6 +46,7 @@ import {
   deleteUser,
   findUserById,
   getUsersByRole,
+  listUsersByRole,
   sanitizeUser,
   updateUser,
   usernameExists,
@@ -112,6 +121,15 @@ async function formatApplicationWithWorker(app) {
   });
 }
 
+async function formatApplicationWithCustomer(app, customerMap) {
+  const customer =
+    customerMap?.get(app.customerId) || (await findUserById(app.customerId));
+  return formatApplication({
+    ...app,
+    customerUsername: customer?.username || `Customer #${app.customerId}`,
+  });
+}
+
 function createRoleRoutes(role) {
   const label = role.charAt(0).toUpperCase() + role.slice(1);
 
@@ -119,19 +137,33 @@ function createRoleRoutes(role) {
     `/api/admin/${role}s`,
     authMiddleware,
     requireRole("admin"),
-    asyncHandler(async (_req, res) => {
-      const usersList = await getUsersByRole(role);
+    asyncHandler(async (req, res) => {
+      const { page, pageSize, from, to } = parsePaginationQuery(req.query);
+
+      const { items, total } = await listUsersByRole(role, {
+        search: req.query.search || "",
+        techStack: req.query.techStack || "",
+        from,
+        to,
+      });
+
       if (role === "worker") {
         const usersWithAllowances = await Promise.all(
-          usersList.map(async (user) => ({
+          items.map(async (user) => ({
             ...user,
             allowedCustomerIds: await getCustomerIdsForWorker(user.id),
           }))
         );
-        res.json({ users: usersWithAllowances });
-        return;
+        return res.json({
+          users: usersWithAllowances,
+          pagination: buildPaginationMeta(total, page, pageSize),
+        });
       }
-      res.json({ users: usersList });
+
+      res.json({
+        users: items,
+        pagination: buildPaginationMeta(total, page, pageSize),
+      });
     })
   );
 
@@ -344,8 +376,48 @@ app.get(
         workers: workers.length,
         customers: customers.length,
       },
-      jobs,
-      bids,
+    });
+  })
+);
+
+app.get(
+  "/api/admin/platform-jobs",
+  authMiddleware,
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const { page, pageSize, from, to } = parsePaginationQuery(req.query);
+    const { items, total } = await listJobsPaginated({
+      search: req.query.search || "",
+      status: req.query.status || "all",
+      customerId: req.query.customerId || "",
+      from,
+      to,
+    });
+
+    res.json({
+      jobs: items,
+      pagination: buildPaginationMeta(total, page, pageSize),
+    });
+  })
+);
+
+app.get(
+  "/api/admin/platform-bids",
+  authMiddleware,
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const { page, pageSize, from, to } = parsePaginationQuery(req.query);
+    const { items, total } = await listBidsPaginated({
+      search: req.query.search || "",
+      status: req.query.status || "all",
+      jobId: req.query.jobId || "",
+      from,
+      to,
+    });
+
+    res.json({
+      bids: items,
+      pagination: buildPaginationMeta(total, page, pageSize),
     });
   })
 );
@@ -382,9 +454,25 @@ app.get(
   authMiddleware,
   requireRole("customer"),
   asyncHandler(async (req, res) => {
-    const applications = await getApplicationsForCustomer(req.user.id);
-    const formatted = await Promise.all(applications.map(formatApplicationWithWorker));
-    res.json({ applications: formatted });
+    const customerId = req.user.id;
+    const { page, pageSize, from, to } = parsePaginationQuery(req.query);
+    const filters = parseApplicationFiltersQuery(req.query);
+
+    const { items, total } = await listApplications({
+      customerId,
+      filters,
+      from,
+      to,
+    });
+
+    const formatted = await Promise.all(items.map(formatApplicationWithWorker));
+    const workerUsernames = await getDistinctWorkerUsernamesForCustomer(customerId);
+
+    res.json({
+      applications: formatted,
+      pagination: buildPaginationMeta(total, page, pageSize),
+      filterOptions: { workers: workerUsernames },
+    });
   })
 );
 
@@ -456,13 +544,27 @@ app.get(
       return res.status(404).json({ error: "Customer not found" });
     }
 
-    const applications = await getWorkerApplications(workerId, customerId);
+    const workerScopedCount = (
+      await getWorkerApplications(workerId, customerId)
+    ).length;
+
+    const { page, pageSize, from, to } = parsePaginationQuery(req.query);
+    const filters = parseApplicationFiltersQuery(req.query);
+
+    const { items, total } = await listApplications({
+      workerId,
+      customerId,
+      filters,
+      from,
+      to,
+    });
 
     res.json({
       profile: buildCustomerProfileResponse(customer, {
-        applicationCount: applications.length,
+        applicationCount: workerScopedCount,
       }),
-      applications: applications.map(formatApplication),
+      applications: items.map(formatApplication),
+      pagination: buildPaginationMeta(total, page, pageSize),
     });
   })
 );
@@ -494,6 +596,55 @@ app.post(
     });
 
     res.status(201).json({ application: formatApplication(application) });
+  })
+);
+
+app.get(
+  "/api/worker/applications",
+  authMiddleware,
+  requireRole("worker"),
+  asyncHandler(async (req, res) => {
+    const workerId = req.user.id;
+    const allowedCustomerIds = await getCustomerIdsForWorker(workerId);
+    const customers = (await getUsersByRole("customer")).filter((c) =>
+      allowedCustomerIds.includes(c.id)
+    );
+    const customerMap = new Map(customers.map((c) => [c.id, c]));
+
+    const rawCustomerId = req.query.customerId;
+    let filterCustomerIds = allowedCustomerIds;
+
+    if (
+      rawCustomerId != null &&
+      rawCustomerId !== "" &&
+      rawCustomerId !== "all"
+    ) {
+      const customerId = Number(rawCustomerId);
+      if (!allowedCustomerIds.includes(customerId)) {
+        return res.status(403).json({ error: "Access denied for this customer" });
+      }
+      filterCustomerIds = [customerId];
+    }
+
+    const { page, pageSize, from, to } = parsePaginationQuery(req.query);
+    const filters = parseApplicationFiltersQuery(req.query);
+
+    const { items, total } = await listApplications({
+      workerId,
+      customerIds: filterCustomerIds,
+      filters,
+      from,
+      to,
+    });
+
+    const formatted = await Promise.all(
+      items.map((app) => formatApplicationWithCustomer(app, customerMap))
+    );
+
+    res.json({
+      applications: formatted,
+      pagination: buildPaginationMeta(total, page, pageSize),
+    });
   })
 );
 
@@ -548,13 +699,52 @@ app.put(
       return res.status(404).json({ error: "Job application not found" });
     }
 
+    const newCustomerId =
+      req.body.customerId != null ? Number(req.body.customerId) : application.customerId;
+
+    if (req.body.customerId != null) {
+      if (!(await workerCanAccessCustomer(req.user.id, newCustomerId))) {
+        return res.status(403).json({ error: "Access denied for this customer" });
+      }
+    }
+
+    const jobFieldKeys = ["jobLink", "jobTitle", "jobDescription", "companyName", "bidStatus"];
+    const hasJobFieldUpdates = jobFieldKeys.some((key) => req.body[key] !== undefined);
+
+    if (req.body.customerId != null && !hasJobFieldUpdates) {
+      const updated = await reassignApplicationCustomer(
+        application.id,
+        req.user.id,
+        newCustomerId
+      );
+      const customer = await findUserById(updated.customerId);
+      return res.json({
+        application: formatApplication({
+          ...updated,
+          customerUsername: customer?.username || `Customer #${updated.customerId}`,
+        }),
+      });
+    }
+
     const parsed = buildApplicationData(req.body, application);
     if (parsed.error) return res.status(400).json({ error: parsed.error });
 
-    const updated = await updateApplication(application.id, parsed.data, {
-      customerId: application.customerId,
+    const updateData = { ...parsed.data };
+    if (req.body.customerId != null && newCustomerId !== application.customerId) {
+      await reassignApplicationCustomer(application.id, req.user.id, newCustomerId);
+      updateData.customerId = newCustomerId;
+    }
+
+    const updated = await updateApplication(application.id, updateData, {
+      customerId: newCustomerId,
     });
-    res.json({ application: formatApplication(updated) });
+    const customer = await findUserById(updated.customerId);
+    res.json({
+      application: formatApplication({
+        ...updated,
+        customerUsername: customer?.username || `Customer #${updated.customerId}`,
+      }),
+    });
   })
 );
 

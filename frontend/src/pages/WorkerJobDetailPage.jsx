@@ -13,6 +13,7 @@ import "./WorkerDashboard.css";
 
 const workerNav = [
   { id: "overview", label: "Dashboard", icon: "▣" },
+  { id: "jobs", label: "Jobs", icon: "☰" },
   { id: "customers", label: "Customers", icon: "◎" },
 ];
 
@@ -29,6 +30,7 @@ export default function WorkerJobDetailPage() {
 
   const customerUsername =
     location.state?.customerUsername || `Customer #${customerId}`;
+  const backSection = location.state?.section || "customers";
 
   async function loadJob() {
     const result = await apiFetch(`/worker/applications/${jobId}`, { token });
@@ -73,10 +75,13 @@ export default function WorkerJobDetailPage() {
       <>
         <Link
           to="/worker"
-          state={{ selectedCustomerId: Number(customerId), section: "customers" }}
+          state={{
+            selectedCustomerId: Number(customerId),
+            section: backSection,
+          }}
           className="back-link"
         >
-          ← Back to {customerUsername}
+          ← Back to {backSection === "jobs" ? "Jobs" : customerUsername}
         </Link>
 
         <div className="job-detail-header">
@@ -173,7 +178,7 @@ export default function WorkerJobDetailPage() {
       role="worker"
       subtitle="Worker Portal"
       navItems={workerNav}
-      activeSection="customers"
+      activeSection={backSection}
       onNavigate={handleNav}
     >
       {content}

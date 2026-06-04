@@ -33,7 +33,13 @@ export function useJobApplicationFilters(applications, { includeWorker = false }
     return applications.filter((app) => {
       if (
         !matchesAnyText(
-          [app.jobTitle, app.companyName, app.jobLink, app.workerUsername],
+          [
+            app.jobTitle,
+            app.companyName,
+            app.jobLink,
+            app.workerUsername,
+            app.customerUsername,
+          ],
           filters.search
         )
       ) {

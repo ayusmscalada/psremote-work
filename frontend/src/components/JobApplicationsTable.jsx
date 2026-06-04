@@ -1,42 +1,86 @@
+import { useCallback, useEffect, useState } from "react";
 import { bidStatusLabel } from "../constants";
-import { useJobApplicationFilters } from "../hooks/useJobApplicationFilters";
-import { usePagination } from "../hooks/usePagination";
+import { apiFetch } from "../api";
+import { useJobApplicationFilterState } from "../hooks/useJobApplicationFilterState";
+import { useServerPagination } from "../hooks/useServerPagination";
+import { buildApplicationsQuery } from "../utils/listQuery";
 import { formatDateTime } from "../utils/tableUtils";
 import JobApplicationFilters from "./JobApplicationFilters";
 import TablePagination from "./TablePagination";
 
 export default function JobApplicationsTable({
-  applications,
-  onRowClick,
+  token,
   showWorker = false,
+  onRowClick,
 }) {
-  const {
-    filtered,
-    filters,
-    setFilter,
-    clearFilters,
-    hasActiveFilters,
-    workerOptions,
-  } = useJobApplicationFilters(applications, { includeWorker: showWorker });
-  const pagination = usePagination(filtered, { resetKey: filters });
+  const [applications, setApplications] = useState([]);
+  const [workerOptions, setWorkerOptions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  if (applications.length === 0) {
+  const { filters, setFilter, clearFilters, hasActiveFilters } = useJobApplicationFilterState({
+    includeWorker: showWorker,
+  });
+  const pagination = useServerPagination();
+
+  const loadApplications = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const query = buildApplicationsQuery({
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        filters,
+      });
+      const result = await apiFetch(`/customer/applications${query}`, { token });
+      setApplications(result.applications || []);
+      pagination.applyResponse(result.pagination);
+      if (result.filterOptions?.workers) {
+        setWorkerOptions(result.filterOptions.workers);
+      }
+    } catch (err) {
+      setError(err.message);
+      setApplications([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [token, filters, pagination.page, pagination.pageSize, pagination.applyResponse]);
+
+  useEffect(() => {
+    loadApplications();
+  }, [loadApplications]);
+
+  function handleSetFilter(key, value) {
+    setFilter(key, value);
+    pagination.resetPage();
+  }
+
+  function handleClearFilters() {
+    clearFilters();
+    pagination.resetPage();
+  }
+
+  if (!loading && applications.length === 0 && !hasActiveFilters) {
     return <div className="list-empty">No job applications yet.</div>;
   }
 
   return (
     <>
+      {error && <div className="error-banner">{error}</div>}
+
       <JobApplicationFilters
         filters={filters}
-        setFilter={setFilter}
-        clearFilters={clearFilters}
+        setFilter={handleSetFilter}
+        clearFilters={handleClearFilters}
         hasActiveFilters={hasActiveFilters}
-        resultCount={filtered.length}
-        totalCount={applications.length}
+        resultCount={pagination.total}
+        totalCount={pagination.total}
         workerOptions={workerOptions}
       />
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="loading-screen">Loading applications...</div>
+      ) : applications.length === 0 ? (
         <div className="list-empty">No jobs match the current filters.</div>
       ) : (
         <div className="data-table-wrap data-table-wrap--scroll">
@@ -53,7 +97,7 @@ export default function JobApplicationsTable({
               </tr>
             </thead>
             <tbody>
-              {pagination.paginatedItems.map((app) => (
+              {applications.map((app) => (
                 <tr
                   key={app.id}
                   className={onRowClick ? "data-table-row--clickable" : undefined}
@@ -88,11 +132,11 @@ export default function JobApplicationsTable({
         </div>
       )}
 
-      {filtered.length > 0 && (
+      {!loading && pagination.total > 0 && (
         <TablePagination
           page={pagination.page}
           totalPages={pagination.totalPages}
-          totalItems={pagination.totalItems}
+          totalItems={pagination.total}
           rangeStart={pagination.rangeStart}
           rangeEnd={pagination.rangeEnd}
           pageSize={pagination.pageSize}

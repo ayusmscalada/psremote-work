@@ -49,19 +49,11 @@ export default function AdminDashboard() {
   const { token } = useAuth();
   const [activeSection, setActiveSection] = useState("overview");
   const [data, setData] = useState(null);
-  const [workers, setWorkers] = useState([]);
-  const [customers, setCustomers] = useState([]);
   const [error, setError] = useState("");
 
   async function loadAll() {
-    const [overview, workerData, customerData] = await Promise.all([
-      apiFetch("/admin/overview", { token }),
-      apiFetch("/admin/workers", { token }),
-      apiFetch("/admin/customers", { token }),
-    ]);
+    const overview = await apiFetch("/admin/overview", { token });
     setData(overview);
-    setWorkers(workerData.users);
-    setCustomers(customerData.users);
   }
 
   useEffect(() => {
@@ -83,7 +75,7 @@ export default function AdminDashboard() {
     if (error) return <div className="error-banner">{error}</div>;
     if (!data) return <div className="loading-screen">Loading...</div>;
 
-    const { stats, jobs, bids } = data;
+    const { stats } = data;
 
     switch (activeSection) {
       case "overview":
@@ -110,8 +102,8 @@ export default function AdminDashboard() {
             <div className="admin-panel">
               <h2 className="section-title">Quick summary</h2>
               <p className="card-meta">
-                {stats.workers} workers, {stats.customers} customers, {jobs.length} jobs,{" "}
-                {bids.length} bids on the platform.
+                {stats.workers} workers, {stats.customers} customers, {stats.totalJobs} jobs,{" "}
+                {stats.totalBids} bids on the platform.
               </p>
             </div>
           </>
@@ -123,7 +115,6 @@ export default function AdminDashboard() {
             <UserCrudPanel
               title="Workers"
               role="worker"
-              users={workers}
               token={token}
               onChange={loadAll}
               hideTitle
@@ -137,7 +128,6 @@ export default function AdminDashboard() {
             <UserCrudPanel
               title="Customers"
               role="customer"
-              users={customers}
               token={token}
               onChange={loadAll}
               hideTitle
@@ -148,13 +138,7 @@ export default function AdminDashboard() {
       case "access":
         return (
           <div className="admin-panel">
-            <WorkerAllowancePanel
-              workers={workers}
-              customers={customers}
-              token={token}
-              onChange={loadAll}
-              hideTitle
-            />
+            <WorkerAllowancePanel token={token} onChange={loadAll} hideTitle />
           </div>
         );
 
@@ -163,11 +147,11 @@ export default function AdminDashboard() {
           <>
             <div className="admin-panel">
               <h2 className="section-title">All Jobs</h2>
-              <AdminJobsTable jobs={jobs} />
+              <AdminJobsTable token={token} />
             </div>
             <div className="admin-panel">
               <h2 className="section-title">Recent Bids</h2>
-              <AdminBidsTable bids={bids} />
+              <AdminBidsTable token={token} />
             </div>
           </>
         );

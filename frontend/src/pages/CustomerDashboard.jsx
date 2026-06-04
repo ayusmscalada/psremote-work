@@ -37,19 +37,16 @@ export default function CustomerDashboard() {
     location.state?.section || "overview"
   );
   const [overview, setOverview] = useState(null);
-  const [applications, setApplications] = useState([]);
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function loadAll() {
-    const [overviewData, appsData, meData] = await Promise.all([
+    const [overviewData, meData] = await Promise.all([
       apiFetch("/customer/overview", { token }),
-      apiFetch("/customer/applications", { token }),
       apiFetch("/me", { token }),
     ]);
     setOverview(overviewData.stats);
-    setApplications(appsData.applications);
     setProfile(meData.user);
   }
 
@@ -113,7 +110,7 @@ export default function CustomerDashboard() {
         return (
           <div className="app-panel">
             <JobApplicationsTable
-              applications={applications}
+              token={token}
               showWorker
               onRowClick={(app) => navigate(`/customer/applications/${app.id}`)}
             />

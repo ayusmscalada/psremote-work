@@ -14,6 +14,23 @@ export async function getWorkerApplications(workerId, customerId) {
   return (data || []).map(mapApplication);
 }
 
+/** All applications for a worker, optionally limited to specific customer IDs. */
+export async function getAllWorkerApplications(workerId, customerIds) {
+  if (!customerIds?.length) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("job_applications")
+    .select("*")
+    .eq("worker_id", workerId)
+    .in("customer_id", customerIds)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data || []).map(mapApplication);
+}
+
 export async function getApplicationsForCustomer(customerId) {
   const { data, error } = await supabase
     .from("job_applications")
@@ -130,9 +147,42 @@ function isDuplicateJobLinkError(error) {
   );
 }
 
+export async function reassignApplicationCustomer(applicationId, workerId, newCustomerId) {
+  const application = await findWorkerApplication(workerId, applicationId);
+  if (!application) {
+    throw new Error("Job application not found");
+  }
+
+  if (application.customerId === newCustomerId) {
+    return application;
+  }
+
+  await assertUniqueJobLinkForCustomer(
+    newCustomerId,
+    { jobLink: application.jobLink },
+    applicationId
+  );
+
+  const { data, error } = await supabase
+    .from("job_applications")
+    .update({ customer_id: newCustomerId })
+    .eq("id", applicationId)
+    .select("*")
+    .single();
+
+  if (error) {
+    if (isDuplicateJobLinkError(error)) {
+      throw new Error(DUPLICATE_JOB_LINK_ERROR);
+    }
+    throw new Error(error.message);
+  }
+  return mapApplication(data);
+}
+
 export async function updateApplication(id, fields, { customerId } = {}) {
-  if (customerId != null && fields.jobLink !== undefined) {
-    await assertUniqueJobLinkForCustomer(customerId, fields, id);
+  const linkCustomerId = customerId ?? fields.customerId;
+  if (linkCustomerId != null && fields.jobLink !== undefined) {
+    await assertUniqueJobLinkForCustomer(linkCustomerId, fields, id);
   }
 
   const { data, error } = await supabase

@@ -1,56 +1,61 @@
-import { useMemo, useState } from "react";
-import { usePagination } from "../hooks/usePagination";
-import {
-  hasActiveFilters,
-  matchesAnyText,
-  matchesSelect,
-} from "../utils/tableUtils";
+import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "../api";
+import { hasActiveFilters } from "../utils/tableUtils";
+import { appendPaginationParams } from "../utils/listQuery";
+import { useServerPagination } from "../hooks/useServerPagination";
 import { FilterField, TableFilters } from "./TableFilters";
 import TablePagination from "./TablePagination";
 
 const jobDefaults = { search: "", status: "all", customerId: "" };
 const bidDefaults = { search: "", status: "all", jobId: "" };
 
-export function AdminJobsTable({ jobs }) {
+export function AdminJobsTable({ token }) {
   const [filters, setFilters] = useState(jobDefaults);
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const pagination = useServerPagination();
 
-  const filtered = useMemo(() => {
-    return jobs.filter((job) => {
-      if (
-        !matchesAnyText(
-          [job.title, job.description, String(job.customerId), String(job.budget)],
-          filters.search
-        )
-      ) {
-        return false;
-      }
-      if (!matchesSelect(job.status, filters.status)) return false;
-      if (filters.customerId.trim()) {
-        if (String(job.customerId) !== filters.customerId.trim()) return false;
-      }
-      return true;
-    });
-  }, [jobs, filters]);
+  const loadJobs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      appendPaginationParams(params, {
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+      });
+      if (filters.search) params.set("search", filters.search);
+      if (filters.status !== "all") params.set("status", filters.status);
+      if (filters.customerId) params.set("customerId", filters.customerId);
 
-  const pagination = usePagination(filtered, { resetKey: filters });
+      const result = await apiFetch(`/admin/platform-jobs?${params.toString()}`, { token });
+      setJobs(result.jobs || []);
+      pagination.applyResponse(result.pagination);
+    } catch {
+      setJobs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [token, filters, pagination.page, pagination.pageSize, pagination.applyResponse]);
+
+  useEffect(() => {
+    loadJobs();
+  }, [loadJobs]);
 
   function setFilter(key, value) {
     setFilters((prev) => ({ ...prev, [key]: value }));
+    pagination.resetPage();
   }
-
-  if (jobs.length === 0) {
-    return <p className="card-meta">No jobs.</p>;
-  }
-
-  const statusOptions = [...new Set(jobs.map((j) => j.status))].sort();
 
   return (
     <>
       <TableFilters
-        resultCount={filtered.length}
-        totalCount={jobs.length}
+        resultCount={pagination.total}
+        totalCount={pagination.total}
         hasActiveFilters={hasActiveFilters(filters, jobDefaults)}
-        onClear={() => setFilters(jobDefaults)}
+        onClear={() => {
+          setFilters(jobDefaults);
+          pagination.resetPage();
+        }}
       >
         <FilterField label="Search" className="filter-field--grow">
           <input
@@ -63,11 +68,8 @@ export function AdminJobsTable({ jobs }) {
         <FilterField label="Status">
           <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)}>
             <option value="all">All</option>
-            {statusOptions.map((s) => (
-              <option key={s} value={s}>
-                {s.replace("_", " ")}
-              </option>
-            ))}
+            <option value="open">open</option>
+            <option value="in_progress">in progress</option>
           </select>
         </FilterField>
         <FilterField label="Customer ID">
@@ -81,7 +83,9 @@ export function AdminJobsTable({ jobs }) {
         </FilterField>
       </TableFilters>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <p className="card-meta">Loading jobs...</p>
+      ) : jobs.length === 0 ? (
         <p className="card-meta">No jobs match the current filters.</p>
       ) : (
         <div className="data-table-wrap data-table-wrap--scroll">
@@ -96,7 +100,7 @@ export function AdminJobsTable({ jobs }) {
               </tr>
             </thead>
             <tbody>
-              {pagination.paginatedItems.map((job) => (
+              {jobs.map((job) => (
                 <tr key={job.id}>
                   <td>#{job.id}</td>
                   <td>
@@ -117,11 +121,11 @@ export function AdminJobsTable({ jobs }) {
         </div>
       )}
 
-      {filtered.length > 0 && (
+      {!loading && pagination.total > 0 && (
         <TablePagination
           page={pagination.page}
           totalPages={pagination.totalPages}
-          totalItems={pagination.totalItems}
+          totalItems={pagination.total}
           rangeStart={pagination.rangeStart}
           rangeEnd={pagination.rangeEnd}
           pageSize={pagination.pageSize}
@@ -135,46 +139,53 @@ export function AdminJobsTable({ jobs }) {
   );
 }
 
-export function AdminBidsTable({ bids }) {
+export function AdminBidsTable({ token }) {
   const [filters, setFilters] = useState(bidDefaults);
+  const [bids, setBids] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const pagination = useServerPagination();
 
-  const filtered = useMemo(() => {
-    return bids.filter((bid) => {
-      if (
-        !matchesAnyText(
-          [bid.message, String(bid.jobId), String(bid.amount), bid.status],
-          filters.search
-        )
-      ) {
-        return false;
-      }
-      if (!matchesSelect(bid.status, filters.status)) return false;
-      if (filters.jobId.trim() && String(bid.jobId) !== filters.jobId.trim()) {
-        return false;
-      }
-      return true;
-    });
-  }, [bids, filters]);
+  const loadBids = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      appendPaginationParams(params, {
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+      });
+      if (filters.search) params.set("search", filters.search);
+      if (filters.status !== "all") params.set("status", filters.status);
+      if (filters.jobId) params.set("jobId", filters.jobId);
 
-  const pagination = usePagination(filtered, { resetKey: filters });
+      const result = await apiFetch(`/admin/platform-bids?${params.toString()}`, { token });
+      setBids(result.bids || []);
+      pagination.applyResponse(result.pagination);
+    } catch {
+      setBids([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [token, filters, pagination.page, pagination.pageSize, pagination.applyResponse]);
+
+  useEffect(() => {
+    loadBids();
+  }, [loadBids]);
 
   function setFilter(key, value) {
     setFilters((prev) => ({ ...prev, [key]: value }));
+    pagination.resetPage();
   }
-
-  if (bids.length === 0) {
-    return <p className="card-meta">No bids.</p>;
-  }
-
-  const statusOptions = [...new Set(bids.map((b) => b.status))].sort();
 
   return (
     <>
       <TableFilters
-        resultCount={filtered.length}
-        totalCount={bids.length}
+        resultCount={pagination.total}
+        totalCount={pagination.total}
         hasActiveFilters={hasActiveFilters(filters, bidDefaults)}
-        onClear={() => setFilters(bidDefaults)}
+        onClear={() => {
+          setFilters(bidDefaults);
+          pagination.resetPage();
+        }}
       >
         <FilterField label="Search" className="filter-field--grow">
           <input
@@ -187,11 +198,7 @@ export function AdminBidsTable({ bids }) {
         <FilterField label="Status">
           <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)}>
             <option value="all">All</option>
-            {statusOptions.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
+            <option value="pending">pending</option>
           </select>
         </FilterField>
         <FilterField label="Job ID">
@@ -205,7 +212,9 @@ export function AdminBidsTable({ bids }) {
         </FilterField>
       </TableFilters>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <p className="card-meta">Loading bids...</p>
+      ) : bids.length === 0 ? (
         <p className="card-meta">No bids match the current filters.</p>
       ) : (
         <div className="data-table-wrap">
@@ -219,7 +228,7 @@ export function AdminBidsTable({ bids }) {
               </tr>
             </thead>
             <tbody>
-              {pagination.paginatedItems.map((bid) => (
+              {bids.map((bid) => (
                 <tr key={bid.id}>
                   <td>#{bid.jobId}</td>
                   <td>${bid.amount.toLocaleString()}</td>
@@ -234,11 +243,11 @@ export function AdminBidsTable({ bids }) {
         </div>
       )}
 
-      {filtered.length > 0 && (
+      {!loading && pagination.total > 0 && (
         <TablePagination
           page={pagination.page}
           totalPages={pagination.totalPages}
-          totalItems={pagination.totalItems}
+          totalItems={pagination.total}
           rangeStart={pagination.rangeStart}
           rangeEnd={pagination.rangeEnd}
           pageSize={pagination.pageSize}

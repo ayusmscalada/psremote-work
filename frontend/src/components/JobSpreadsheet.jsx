@@ -1,38 +1,58 @@
 import { bidStatusLabel } from "../constants";
-import { useJobApplicationFilters } from "../hooks/useJobApplicationFilters";
-import { usePagination } from "../hooks/usePagination";
 import { formatDateTime } from "../utils/tableUtils";
 import JobApplicationFilters from "./JobApplicationFilters";
 import TablePagination from "./TablePagination";
 
 export default function JobSpreadsheet({
   applications,
+  showCustomer = false,
+  customerAssign = false,
+  allowedCustomers = [],
+  onCustomerChange,
+  assigningCustomerId = null,
+  filters,
+  setFilter,
+  clearFilters,
+  hasActiveFilters,
+  resultCount,
+  totalCount,
+  workerOptions = [],
+  pagination,
+  onPageChange,
+  onPageSizeChange,
+  loading = false,
   onRowClick,
   onEdit,
   onScreenshot,
   onDelete,
   deletingId,
 }) {
-  const { filtered, filters, setFilter, clearFilters, hasActiveFilters } =
-    useJobApplicationFilters(applications);
-  const pagination = usePagination(filtered, { resetKey: filters });
+  const showAssignColumn =
+    customerAssign && allowedCustomers.length > 0 && typeof onCustomerChange === "function";
 
-  if (applications.length === 0) {
+  const showFilters = filters && setFilter && clearFilters;
+
+  if (!loading && applications.length === 0 && !showFilters) {
     return <div className="spreadsheet-empty">No jobs yet. Click Add New Job to create a row.</div>;
   }
 
   return (
     <>
-      <JobApplicationFilters
-        filters={filters}
-        setFilter={setFilter}
-        clearFilters={clearFilters}
-        hasActiveFilters={hasActiveFilters}
-        resultCount={filtered.length}
-        totalCount={applications.length}
-      />
+      {showFilters && (
+        <JobApplicationFilters
+          filters={filters}
+          setFilter={setFilter}
+          clearFilters={clearFilters}
+          hasActiveFilters={hasActiveFilters}
+          resultCount={resultCount ?? 0}
+          totalCount={totalCount ?? 0}
+          workerOptions={workerOptions}
+        />
+      )}
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="loading-screen">Loading jobs...</div>
+      ) : applications.length === 0 ? (
         <div className="spreadsheet-empty">No jobs match the current filters.</div>
       ) : (
         <div className="spreadsheet-wrap">
@@ -43,6 +63,12 @@ export default function JobSpreadsheet({
                 <th className="col-registered">Registered</th>
                 <th className="col-title">Title</th>
                 <th className="col-company">Company</th>
+                {showAssignColumn && (
+                  <th className="col-customer-assign">Customer (assign)</th>
+                )}
+                {showCustomer && !showAssignColumn && (
+                  <th className="col-customer">Customer</th>
+                )}
                 <th className="col-link">Job Link</th>
                 <th className="col-status">Bid Status</th>
                 <th className="col-screenshot">Screenshot</th>
@@ -50,9 +76,11 @@ export default function JobSpreadsheet({
               </tr>
             </thead>
             <tbody>
-              {pagination.paginatedItems.map((app, index) => {
+              {applications.map((app, index) => {
                 const isDeleting = deletingId === app.id;
-                const rowNum = (pagination.page - 1) * pagination.pageSize + index + 1;
+                const isAssigning = assigningCustomerId === app.id;
+                const rowNum =
+                  (pagination.page - 1) * pagination.pageSize + index + 1;
 
                 return (
                   <tr
@@ -68,6 +96,33 @@ export default function JobSpreadsheet({
                     <td className="cell-text" title={app.companyName}>
                       {app.companyName}
                     </td>
+                    {showAssignColumn && (
+                      <td
+                        className="cell-customer-assign"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <select
+                          className="sheet-customer-select"
+                          value={String(app.customerId)}
+                          disabled={isDeleting || isAssigning}
+                          aria-label={`Assign customer for ${app.jobTitle}`}
+                          onChange={(e) =>
+                            onCustomerChange(app, Number(e.target.value))
+                          }
+                        >
+                          {allowedCustomers.map((customer) => (
+                            <option key={customer.id} value={String(customer.id)}>
+                              {customer.username}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    )}
+                    {showCustomer && !showAssignColumn && (
+                      <td className="cell-text" title={app.customerUsername}>
+                        {app.customerUsername || "—"}
+                      </td>
+                    )}
                     <td className="cell-link">
                       <a
                         href={app.jobLink}
@@ -91,7 +146,7 @@ export default function JobSpreadsheet({
                         type="button"
                         className="sheet-btn"
                         onClick={() => onEdit(app)}
-                        disabled={isDeleting}
+                        disabled={isDeleting || isAssigning}
                       >
                         Edit
                       </button>
@@ -99,7 +154,7 @@ export default function JobSpreadsheet({
                         type="button"
                         className="sheet-btn sheet-btn-primary"
                         onClick={() => onScreenshot(app)}
-                        disabled={isDeleting}
+                        disabled={isDeleting || isAssigning}
                       >
                         Add Screenshot
                       </button>
@@ -107,7 +162,7 @@ export default function JobSpreadsheet({
                         type="button"
                         className="sheet-btn sheet-btn-danger"
                         onClick={() => onDelete(app)}
-                        disabled={isDeleting}
+                        disabled={isDeleting || isAssigning}
                       >
                         {isDeleting ? "..." : "Delete"}
                       </button>
@@ -120,16 +175,16 @@ export default function JobSpreadsheet({
         </div>
       )}
 
-      {filtered.length > 0 && (
+      {!loading && pagination && pagination.total > 0 && (
         <TablePagination
           page={pagination.page}
           totalPages={pagination.totalPages}
-          totalItems={pagination.totalItems}
+          totalItems={pagination.total}
           rangeStart={pagination.rangeStart}
           rangeEnd={pagination.rangeEnd}
           pageSize={pagination.pageSize}
-          onPageChange={pagination.setPage}
-          onPageSizeChange={pagination.setPageSize}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
           hasPrev={pagination.hasPrev}
           hasNext={pagination.hasNext}
         />

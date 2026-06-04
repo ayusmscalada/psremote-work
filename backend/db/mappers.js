@@ -60,5 +60,6 @@ export function toApplicationRow(data) {
   if (data.bidStatus !== undefined) row.bid_status = data.bidStatus;
   if (data.screenshotLink !== undefined) row.screenshot_link = data.screenshotLink;
   if (data.jobLinkNormalized !== undefined) row.job_link_normalized = data.jobLinkNormalized;
+  if (data.customerId !== undefined) row.customer_id = data.customerId;
   return row;
 }

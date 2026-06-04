@@ -1,11 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../api";
-import {
-  hasActiveFilters,
-  matchesAnyText,
-  matchesText,
-} from "../utils/tableUtils";
-import { usePagination } from "../hooks/usePagination";
+import { hasActiveFilters } from "../utils/tableUtils";
+import { appendPaginationParams } from "../utils/listQuery";
+import { useServerPagination } from "../hooks/useServerPagination";
 import { FilterField, TableFilters } from "./TableFilters";
 import TablePagination from "./TablePagination";
 import CustomerFormModal from "./CustomerFormModal";
@@ -15,9 +12,11 @@ const customerFilterDefaults = { search: "", techStack: "" };
 
 const emptyWorkerForm = { username: "", password: "" };
 
-export default function UserCrudPanel({ title, role, users, token, onChange, hideTitle }) {
+export default function UserCrudPanel({ title, role, token, onChange, hideTitle }) {
   const isCustomer = role === "customer";
 
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyWorkerForm);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(emptyWorkerForm);
@@ -28,33 +27,64 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
   const [customerFilters, setCustomerFilters] = useState(customerFilterDefaults);
 
   const endpoint = `/admin/${role}s`;
+  const filters = isCustomer ? customerFilters : workerFilters;
+  const filterDefaults = isCustomer ? customerFilterDefaults : workerFilterDefaults;
+  const pagination = useServerPagination();
 
-  const filteredWorkers = useMemo(() => {
-    return users.filter((user) => matchesText(user.username, workerFilters.search));
-  }, [users, workerFilters.search]);
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      appendPaginationParams(params, {
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+      });
+      if (filters.search) params.set("search", filters.search);
+      if (isCustomer && filters.techStack) params.set("techStack", filters.techStack);
 
-  const filteredCustomers = useMemo(() => {
-    return users.filter((user) => {
-      if (
-        !matchesAnyText(
-          [user.username, user.email, user.phone, user.techStack],
-          customerFilters.search
-        )
-      ) {
-        return false;
-      }
-      if (
-        customerFilters.techStack.trim() &&
-        !matchesText(user.techStack, customerFilters.techStack)
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [users, customerFilters]);
+      const result = await apiFetch(`${endpoint}?${params.toString()}`, { token });
+      setUsers(result.users || []);
+      pagination.applyResponse(result.pagination);
+    } catch (err) {
+      setError(err.message);
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    endpoint,
+    token,
+    filters,
+    isCustomer,
+    pagination.page,
+    pagination.pageSize,
+    pagination.applyResponse,
+  ]);
 
-  const workerPagination = usePagination(filteredWorkers, { resetKey: workerFilters });
-  const customerPagination = usePagination(filteredCustomers, { resetKey: customerFilters });
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
+
+  async function refresh() {
+    await loadUsers();
+    if (onChange) await onChange();
+  }
+
+  function updateFilter(key, value) {
+    if (isCustomer) {
+      setCustomerFilters((f) => ({ ...f, [key]: value }));
+    } else {
+      setWorkerFilters({ search: value });
+    }
+    pagination.resetPage();
+  }
+
+  function clearFilters() {
+    if (isCustomer) setCustomerFilters(customerFilterDefaults);
+    else setWorkerFilters(workerFilterDefaults);
+    pagination.resetPage();
+  }
 
   async function handleCreateWorker(e) {
     e.preventDefault();
@@ -67,7 +97,7 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
         body: JSON.stringify(form),
       });
       setForm(emptyWorkerForm);
-      await onChange();
+      await refresh();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -98,7 +128,7 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
         body: JSON.stringify(editForm),
       });
       cancelEditWorker();
-      await onChange();
+      await refresh();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -117,7 +147,7 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
         token,
       });
       if (editingId === user.id) cancelEditWorker();
-      await onChange();
+      await refresh();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -143,19 +173,17 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
         </div>
 
         <TableFilters
-          resultCount={filteredCustomers.length}
-          totalCount={users.length}
+          resultCount={pagination.total}
+          totalCount={pagination.total}
           hasActiveFilters={hasActiveFilters(customerFilters, customerFilterDefaults)}
-          onClear={() => setCustomerFilters(customerFilterDefaults)}
+          onClear={clearFilters}
         >
           <FilterField label="Search" className="filter-field--grow">
             <input
               type="search"
               placeholder="Username, email, phone, tech stack…"
               value={customerFilters.search}
-              onChange={(e) =>
-                setCustomerFilters((f) => ({ ...f, search: e.target.value }))
-              }
+              onChange={(e) => updateFilter("search", e.target.value)}
             />
           </FilterField>
           <FilterField label="Tech stack">
@@ -163,13 +191,14 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
               type="search"
               placeholder="Filter by tech stack"
               value={customerFilters.techStack}
-              onChange={(e) =>
-                setCustomerFilters((f) => ({ ...f, techStack: e.target.value }))
-              }
+              onChange={(e) => updateFilter("techStack", e.target.value)}
             />
           </FilterField>
         </TableFilters>
 
+        {loading ? (
+          <div className="loading-screen">Loading...</div>
+        ) : (
         <div className="data-table-wrap data-table-wrap--scroll">
           <table className="data-table">
             <thead>
@@ -185,17 +214,11 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
               {users.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="empty-cell">
-                    No customers yet.
-                  </td>
-                </tr>
-              ) : filteredCustomers.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="empty-cell">
                     No customers match the current filters.
                   </td>
                 </tr>
               ) : (
-                customerPagination.paginatedItems.map((user) => (
+                users.map((user) => (
                   <tr key={user.id}>
                     <td>{user.username}</td>
                     <td>{user.email || "—"}</td>
@@ -227,19 +250,20 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
             </tbody>
           </table>
         </div>
+        )}
 
-        {filteredCustomers.length > 0 && (
+        {!loading && pagination.total > 0 && (
           <TablePagination
-            page={customerPagination.page}
-            totalPages={customerPagination.totalPages}
-            totalItems={customerPagination.totalItems}
-            rangeStart={customerPagination.rangeStart}
-            rangeEnd={customerPagination.rangeEnd}
-            pageSize={customerPagination.pageSize}
-            onPageChange={customerPagination.setPage}
-            onPageSizeChange={customerPagination.setPageSize}
-            hasPrev={customerPagination.hasPrev}
-            hasNext={customerPagination.hasNext}
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.total}
+            rangeStart={pagination.rangeStart}
+            rangeEnd={pagination.rangeEnd}
+            pageSize={pagination.pageSize}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+            hasPrev={pagination.hasPrev}
+            hasNext={pagination.hasNext}
           />
         )}
 
@@ -249,7 +273,7 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
             user={customerModal.user}
             token={token}
             onClose={() => setCustomerModal(null)}
-            onSaved={onChange}
+            onSaved={refresh}
           />
         )}
       </section>
@@ -282,21 +306,24 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
       </form>
 
       <TableFilters
-        resultCount={filteredWorkers.length}
-        totalCount={users.length}
+        resultCount={pagination.total}
+        totalCount={pagination.total}
         hasActiveFilters={hasActiveFilters(workerFilters, workerFilterDefaults)}
-        onClear={() => setWorkerFilters(workerFilterDefaults)}
+        onClear={clearFilters}
       >
         <FilterField label="Search" className="filter-field--grow">
           <input
             type="search"
             placeholder="Filter by username"
             value={workerFilters.search}
-            onChange={(e) => setWorkerFilters({ search: e.target.value })}
+            onChange={(e) => updateFilter("search", e.target.value)}
           />
         </FilterField>
       </TableFilters>
 
+      {loading ? (
+        <div className="loading-screen">Loading...</div>
+      ) : (
       <div className="data-table-wrap data-table-wrap--scroll">
         <table className="data-table">
           <thead>
@@ -310,17 +337,11 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
             {users.length === 0 ? (
               <tr>
                 <td colSpan={3} className="empty-cell">
-                  No {title.toLowerCase()} yet.
-                </td>
-              </tr>
-            ) : filteredWorkers.length === 0 ? (
-              <tr>
-                <td colSpan={3} className="empty-cell">
                   No {title.toLowerCase()} match the current filters.
                 </td>
               </tr>
             ) : (
-              workerPagination.paginatedItems.map((user) => (
+              users.map((user) => (
                 <tr key={user.id}>
                   {editingId === user.id ? (
                     <>
@@ -393,19 +414,20 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
           </tbody>
         </table>
       </div>
+      )}
 
-      {filteredWorkers.length > 0 && (
+      {!loading && pagination.total > 0 && (
         <TablePagination
-          page={workerPagination.page}
-          totalPages={workerPagination.totalPages}
-          totalItems={workerPagination.totalItems}
-          rangeStart={workerPagination.rangeStart}
-          rangeEnd={workerPagination.rangeEnd}
-          pageSize={workerPagination.pageSize}
-          onPageChange={workerPagination.setPage}
-          onPageSizeChange={workerPagination.setPageSize}
-          hasPrev={workerPagination.hasPrev}
-          hasNext={workerPagination.hasNext}
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.total}
+          rangeStart={pagination.rangeStart}
+          rangeEnd={pagination.rangeEnd}
+          pageSize={pagination.pageSize}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+          hasPrev={pagination.hasPrev}
+          hasNext={pagination.hasNext}
         />
       )}
     </section>

@@ -4,11 +4,13 @@ import { apiFetch } from "../api";
 import { useAuth } from "../context/AuthContext";
 import AppShell from "../components/AppShell";
 import CustomerDetailPanel from "../components/CustomerDetailPanel";
+import WorkerJobsPanel from "../components/WorkerJobsPanel";
 import "../components/AppShell.css";
 import "./WorkerDashboard.css";
 
 const workerNav = [
   { id: "overview", label: "Dashboard", icon: "▣" },
+  { id: "jobs", label: "Jobs", icon: "☰" },
   { id: "customers", label: "Customers", icon: "◎" },
 ];
 
@@ -16,6 +18,10 @@ const sectionMeta = {
   overview: {
     title: "Dashboard",
     description: "Summary of your customers and job applications.",
+  },
+  jobs: {
+    title: "Jobs",
+    description: "All jobs you have registered. Filter by customer or view everything at once.",
   },
   customers: {
     title: "Customers",
@@ -54,9 +60,12 @@ export default function WorkerDashboard() {
     loadCustomers()
       .then((customers) => {
         const fromNav = location.state?.selectedCustomerId;
+        if (location.state?.section) {
+          setActiveSection(location.state.section);
+        }
         if (fromNav) {
           setSelectedCustomerId(fromNav);
-          setActiveSection("customers");
+          setActiveSection(location.state?.section || "customers");
         } else if (customers.length === 1) {
           setSelectedCustomerId(customers[0].id);
         }
@@ -82,9 +91,7 @@ export default function WorkerDashboard() {
 
   function handleNavigate(section) {
     setActiveSection(section);
-    if (section === "overview") {
-      navigate("/worker", { replace: true, state: { section } });
-    }
+    navigate("/worker", { replace: true, state: { section } });
   }
 
   const meta = sectionMeta[activeSection];
@@ -98,6 +105,19 @@ export default function WorkerDashboard() {
     if (loading) return <div className="loading-screen">Loading...</div>;
     if (error && allowedCustomers.length === 0) {
       return <div className="error-banner">{error}</div>;
+    }
+
+    if (activeSection === "jobs") {
+      return (
+        <>
+          {error && <div className="error-banner">{error}</div>}
+          <WorkerJobsPanel
+            allowedCustomers={allowedCustomers}
+            token={token}
+            onRefreshCounts={loadCustomers}
+          />
+        </>
+      );
     }
 
     if (activeSection === "overview") {
@@ -125,7 +145,8 @@ export default function WorkerDashboard() {
       );
     }
 
-    return (
+    if (activeSection === "customers") {
+      return (
       <>
         {error && <div className="error-banner">{error}</div>}
         {allowedCustomers.length === 0 ? (
@@ -158,7 +179,7 @@ export default function WorkerDashboard() {
               <CustomerDetailPanel
                 customer={selectedCustomer}
                 profile={customerDetail.profile}
-                applications={customerDetail.applications}
+                allowedCustomers={allowedCustomers}
                 token={token}
                 onRefresh={handleRefresh}
               />
@@ -166,7 +187,10 @@ export default function WorkerDashboard() {
           </>
         )}
       </>
-    );
+      );
+    }
+
+    return null;
   }
 
   return (

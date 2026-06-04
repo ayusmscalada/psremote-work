@@ -12,6 +12,36 @@
   flex-wrap: wrap;
 }
 
+.applications-toolbar--sheet {
+  align-items: flex-end;
+}
+
+.worker-jobs-customer-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 200px;
+}
+
+.worker-jobs-customer-select select {
+  padding: 0.5rem 0.65rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.worker-jobs-customer-select select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.worker-jobs-hint {
+  margin: 0;
+}
+
 .customer-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

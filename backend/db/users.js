@@ -38,6 +38,41 @@ export async function getUsersByRole(role) {
   return (data || []).map(mapUser).map(sanitizeUser);
 }
 
+export async function listUsersByRole(role, { search = "", techStack = "", from, to } = {}) {
+  let query = supabase.from("users").select("*", { count: "exact" }).eq("role", role);
+
+  if (search) {
+    const term = search.replace(/[%_,]/g, "").trim();
+    if (term) {
+      const pattern = `%${term}%`;
+      if (role === "customer") {
+        query = query.or(
+          `username.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern},tech_stack.ilike.${pattern}`
+        );
+      } else {
+        query = query.ilike("username", pattern);
+      }
+    }
+  }
+
+  if (role === "customer" && techStack) {
+    const stackTerm = techStack.replace(/[%_,]/g, "").trim();
+    if (stackTerm) {
+      query = query.ilike("tech_stack", `%${stackTerm}%`);
+    }
+  }
+
+  query = query.order("id", { ascending: true }).range(from, to);
+
+  const { data, error, count } = await query;
+  if (error) throw new Error(error.message);
+
+  return {
+    items: (data || []).map(mapUser).map(sanitizeUser),
+    total: count ?? 0,
+  };
+}
+
 export async function usernameExists(username, excludeId = null) {
   let query = supabase.from("users").select("id").eq("username", username.trim());
   if (excludeId != null) {

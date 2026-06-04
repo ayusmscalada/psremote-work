@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../api";
+import { useJobApplicationFilterState } from "../hooks/useJobApplicationFilterState";
+import { useServerPagination } from "../hooks/useServerPagination";
+import { buildApplicationsQuery } from "../utils/listQuery";
 import JobSpreadsheet from "./JobSpreadsheet";
 import JobModal from "./JobModal";
 import ScreenshotModal from "./ScreenshotModal";
@@ -9,17 +12,66 @@ import CustomerProfileView from "./CustomerProfileView";
 export default function CustomerDetailPanel({
   customer,
   profile,
-  applications,
+  allowedCustomers = [],
   token,
   onRefresh,
 }) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("profile");
+  const [applications, setApplications] = useState([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
   const [modalMode, setModalMode] = useState(null);
   const [editingApplication, setEditingApplication] = useState(null);
   const [screenshotApplication, setScreenshotApplication] = useState(null);
   const [actionError, setActionError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
+  const [assigningCustomerId, setAssigningCustomerId] = useState(null);
+
+  const { filters, setFilter, clearFilters, hasActiveFilters } = useJobApplicationFilterState();
+  const pagination = useServerPagination();
+
+  const loadApplications = useCallback(async () => {
+    setJobsLoading(true);
+    setActionError("");
+    try {
+      const query = buildApplicationsQuery({
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        filters,
+      });
+      const result = await apiFetch(`/worker/customers/${customer.id}${query}`, { token });
+      setApplications(result.applications || []);
+      pagination.applyResponse(result.pagination);
+    } catch (err) {
+      setActionError(err.message);
+      setApplications([]);
+    } finally {
+      setJobsLoading(false);
+    }
+  }, [
+    customer.id,
+    token,
+    filters,
+    pagination.page,
+    pagination.pageSize,
+    pagination.applyResponse,
+  ]);
+
+  useEffect(() => {
+    if (activeTab === "jobs") {
+      loadApplications();
+    }
+  }, [activeTab, loadApplications]);
+
+  function handleSetFilter(key, value) {
+    setFilter(key, value);
+    pagination.resetPage();
+  }
+
+  function handleClearFilters() {
+    clearFilters();
+    pagination.resetPage();
+  }
 
   function openCreateModal() {
     setEditingApplication(null);
@@ -45,10 +97,35 @@ export default function CustomerDetailPanel({
     setScreenshotApplication(null);
   }
 
+  async function handleSaved() {
+    await loadApplications();
+    await onRefresh();
+    closeModal();
+  }
+
   function openJobDetail(app) {
     navigate(`/worker/customers/${customer.id}/jobs/${app.id}`, {
       state: { customerUsername: customer.username },
     });
+  }
+
+  async function handleCustomerChange(application, newCustomerId) {
+    if (newCustomerId === application.customerId) return;
+
+    setActionError("");
+    setAssigningCustomerId(application.id);
+    try {
+      await apiFetch(`/worker/applications/${application.id}`, {
+        method: "PUT",
+        token,
+        body: JSON.stringify({ customerId: newCustomerId }),
+      });
+      await handleSaved();
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setAssigningCustomerId(null);
+    }
   }
 
   async function handleDelete(application) {
@@ -61,7 +138,7 @@ export default function CustomerDetailPanel({
         method: "DELETE",
         token,
       });
-      await onRefresh();
+      await handleSaved();
     } catch (err) {
       setActionError(err.message);
     } finally {
@@ -118,6 +195,20 @@ export default function CustomerDetailPanel({
 
           <JobSpreadsheet
             applications={applications}
+            customerAssign={allowedCustomers.length > 1}
+            allowedCustomers={allowedCustomers}
+            onCustomerChange={handleCustomerChange}
+            assigningCustomerId={assigningCustomerId}
+            filters={filters}
+            setFilter={handleSetFilter}
+            clearFilters={handleClearFilters}
+            hasActiveFilters={hasActiveFilters}
+            resultCount={pagination.total}
+            totalCount={pagination.total}
+            pagination={pagination}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+            loading={jobsLoading}
             onRowClick={openJobDetail}
             onEdit={openEditModal}
             onScreenshot={openScreenshotModal}
@@ -134,7 +225,7 @@ export default function CustomerDetailPanel({
           application={editingApplication}
           token={token}
           onClose={closeModal}
-          onSaved={onRefresh}
+          onSaved={handleSaved}
         />
       )}
 
@@ -143,7 +234,7 @@ export default function CustomerDetailPanel({
           application={screenshotApplication}
           token={token}
           onClose={closeModal}
-          onSaved={onRefresh}
+          onSaved={handleSaved}
         />
       )}
     </section>
