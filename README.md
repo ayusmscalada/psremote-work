@@ -88,7 +88,7 @@ frontend/    React (Vite) SPA with role dashboards
 - `GET /api/customer/jobs` — platform jobs (customer)
 - `GET /api/worker/jobs` — allowed customers for worker
 - `GET /api/worker/customers/:id` — customer profile and applications (worker)
-- `POST /api/worker/customers/:id/applications` — add job application (worker). Duplicate job links for the same customer are rejected (query strings and URL fragments are ignored when comparing links).
+- `POST /api/worker/customers/:id/applications` — add job application (worker). Duplicate job links for the same customer are rejected (full URL compared, including path and query string).
 - `GET /api/worker/applications/:id` — get job application (worker)
 - `PUT /api/worker/applications/:id` — update job application (worker)
 - `PUT /api/worker/applications/:id/screenshot` — upload screenshot image to S3 (worker, multipart field `screenshot`)

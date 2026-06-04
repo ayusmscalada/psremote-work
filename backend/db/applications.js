@@ -227,8 +227,8 @@ export async function countCompletedApplicationsForCustomer(customerId) {
   return count || 0;
 }
 
-/** Backfill job_link_normalized after schema patch (npm run db:patch). */
-export async function backfillJobLinkNormalized() {
+/** Backfill job_link_normalized after schema patch (npm run db:patch). Re-runs when normalization rules change. */
+export async function backfillJobLinkNormalized({ force = true } = {}) {
   const { data, error } = await supabase
     .from("job_applications")
     .select("id, job_link, job_link_normalized");
@@ -243,7 +243,7 @@ export async function backfillJobLinkNormalized() {
   let updated = 0;
   for (const row of data || []) {
     const normalized = normalizeJobLink(row.job_link);
-    if (row.job_link_normalized === normalized) continue;
+    if (!force && row.job_link_normalized === normalized) continue;
 
     const { error: updateError } = await supabase
       .from("job_applications")

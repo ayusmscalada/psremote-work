@@ -1,9 +1,9 @@
 export const DUPLICATE_JOB_LINK_ERROR =
-  "This job link is already registered for this customer. URLs that differ only by query parameters (?...) count as the same job.";
+  "This job link is already registered for this customer. The full URL is compared, including path and query parameters (?…).";
 
 /**
  * Normalize a job URL for duplicate detection (per customer).
- * Strips query string and hash; lowercases host; trims trailing slashes on path.
+ * Keeps path and query string; strips hash only; lowercases host; sorts query params for stable matching.
  */
 export function normalizeJobLink(raw) {
   const trimmed = (raw ?? "").trim();
@@ -13,7 +13,6 @@ export function normalizeJobLink(raw) {
 
   try {
     const url = new URL(withProtocol);
-    url.search = "";
     url.hash = "";
     url.hostname = url.hostname.toLowerCase();
 
@@ -28,13 +27,53 @@ export function normalizeJobLink(raw) {
       url.port = "";
     }
 
+    url.search = canonicalSearchString(url.searchParams);
+
     return url.href;
   } catch {
-    const withoutHash = trimmed.split("#")[0];
-    const withoutQuery = withoutHash.split("?")[0].trim().toLowerCase();
-    if (withoutQuery.length > 1 && withoutQuery.endsWith("/")) {
-      return withoutQuery.slice(0, -1);
+    const withoutHash = trimmed.split("#")[0].trim();
+    const [pathPart, queryPart] = splitPathAndQuery(withoutHash);
+    let path = pathPart.toLowerCase();
+    if (path.length > 1 && path.endsWith("/")) {
+      path = path.slice(0, -1);
     }
-    return withoutQuery;
+    const query = queryPart ? `?${canonicalSearchString(parseQueryString(queryPart))}` : "";
+    return `${path}${query}`;
   }
+}
+
+function splitPathAndQuery(value) {
+  const qIndex = value.indexOf("?");
+  if (qIndex === -1) return [value, ""];
+  return [value.slice(0, qIndex), value.slice(qIndex + 1)];
+}
+
+function parseQueryString(queryWithoutQuestion) {
+  const params = new URLSearchParams();
+  if (queryWithoutQuestion) {
+    new URLSearchParams(queryWithoutQuestion).forEach((val, key) => {
+      params.append(key, val);
+    });
+  }
+  return params;
+}
+
+function canonicalSearchString(params) {
+  if (!params || [...params.keys()].length === 0) return "";
+
+  const entries = [];
+  for (const key of [...params.keys()].sort()) {
+    const values = params.getAll(key).sort();
+    for (const value of values) {
+      entries.push([key, value]);
+    }
+  }
+
+  const sorted = new URLSearchParams();
+  for (const [key, value] of entries) {
+    sorted.append(key, value);
+  }
+
+  const serialized = sorted.toString();
+  return serialized ? `?${serialized}` : "";
 }

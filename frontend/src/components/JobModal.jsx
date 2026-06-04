@@ -108,8 +108,8 @@ export default function JobModal({
               required
             />
             <span className="field-hint">
-              The same job cannot be added twice for this customer. Query parameters (?…) are
-              ignored when comparing links.
+              The same job cannot be added twice for this customer. The full URL is compared,
+              including path and query parameters (?…).
             </span>
           </label>
 
