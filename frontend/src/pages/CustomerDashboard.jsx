@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { apiFetch } from "../api";
 import { useAuth } from "../context/AuthContext";
 import AppShell from "../components/AppShell";
-import JobList from "../components/JobList";
+import JobApplicationsTable from "../components/JobApplicationsTable";
 import CustomerSelfProfilePanel from "../components/CustomerSelfProfilePanel";
 import "../components/AppShell.css";
 import "./CustomerDashboard.css";
@@ -112,15 +112,11 @@ export default function CustomerDashboard() {
       case "applications":
         return (
           <div className="app-panel">
-            {applications.length === 0 ? (
-              <div className="list-empty">No job applications yet.</div>
-            ) : (
-              <JobList
-                applications={applications}
-                variant="customer"
-                onRowClick={(app) => navigate(`/customer/applications/${app.id}`)}
-              />
-            )}
+            <JobApplicationsTable
+              applications={applications}
+              showWorker
+              onRowClick={(app) => navigate(`/customer/applications/${app.id}`)}
+            />
           </div>
         );
 

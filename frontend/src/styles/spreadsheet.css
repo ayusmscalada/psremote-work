@@ -81,12 +81,16 @@
   font-weight: 600;
 }
 
+.spreadsheet .col-registered {
+  width: 11%;
+}
+
 .spreadsheet .col-title {
-  width: 22%;
+  width: 18%;
 }
 
 .spreadsheet .col-company {
-  width: 14%;
+  width: 12%;
 }
 
 .spreadsheet .col-link {
@@ -102,7 +106,7 @@
 }
 
 .spreadsheet .col-actions {
-  width: 22%;
+  width: 20%;
 }
 
 .spreadsheet td.action-cell {

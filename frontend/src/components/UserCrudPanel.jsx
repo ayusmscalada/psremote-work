@@ -1,6 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { apiFetch } from "../api";
+import {
+  hasActiveFilters,
+  matchesAnyText,
+  matchesText,
+} from "../utils/tableUtils";
+import { usePagination } from "../hooks/usePagination";
+import { FilterField, TableFilters } from "./TableFilters";
+import TablePagination from "./TablePagination";
 import CustomerFormModal from "./CustomerFormModal";
+
+const workerFilterDefaults = { search: "" };
+const customerFilterDefaults = { search: "", techStack: "" };
 
 const emptyWorkerForm = { username: "", password: "" };
 
@@ -13,8 +24,37 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
   const [customerModal, setCustomerModal] = useState(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [workerFilters, setWorkerFilters] = useState(workerFilterDefaults);
+  const [customerFilters, setCustomerFilters] = useState(customerFilterDefaults);
 
   const endpoint = `/admin/${role}s`;
+
+  const filteredWorkers = useMemo(() => {
+    return users.filter((user) => matchesText(user.username, workerFilters.search));
+  }, [users, workerFilters.search]);
+
+  const filteredCustomers = useMemo(() => {
+    return users.filter((user) => {
+      if (
+        !matchesAnyText(
+          [user.username, user.email, user.phone, user.techStack],
+          customerFilters.search
+        )
+      ) {
+        return false;
+      }
+      if (
+        customerFilters.techStack.trim() &&
+        !matchesText(user.techStack, customerFilters.techStack)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [users, customerFilters]);
+
+  const workerPagination = usePagination(filteredWorkers, { resetKey: workerFilters });
+  const customerPagination = usePagination(filteredCustomers, { resetKey: customerFilters });
 
   async function handleCreateWorker(e) {
     e.preventDefault();
@@ -102,6 +142,34 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
           </button>
         </div>
 
+        <TableFilters
+          resultCount={filteredCustomers.length}
+          totalCount={users.length}
+          hasActiveFilters={hasActiveFilters(customerFilters, customerFilterDefaults)}
+          onClear={() => setCustomerFilters(customerFilterDefaults)}
+        >
+          <FilterField label="Search" className="filter-field--grow">
+            <input
+              type="search"
+              placeholder="Username, email, phone, tech stack…"
+              value={customerFilters.search}
+              onChange={(e) =>
+                setCustomerFilters((f) => ({ ...f, search: e.target.value }))
+              }
+            />
+          </FilterField>
+          <FilterField label="Tech stack">
+            <input
+              type="search"
+              placeholder="Filter by tech stack"
+              value={customerFilters.techStack}
+              onChange={(e) =>
+                setCustomerFilters((f) => ({ ...f, techStack: e.target.value }))
+              }
+            />
+          </FilterField>
+        </TableFilters>
+
         <div className="data-table-wrap data-table-wrap--scroll">
           <table className="data-table">
             <thead>
@@ -120,8 +188,14 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
                     No customers yet.
                   </td>
                 </tr>
+              ) : filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="empty-cell">
+                    No customers match the current filters.
+                  </td>
+                </tr>
               ) : (
-                users.map((user) => (
+                customerPagination.paginatedItems.map((user) => (
                   <tr key={user.id}>
                     <td>{user.username}</td>
                     <td>{user.email || "—"}</td>
@@ -153,6 +227,21 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
             </tbody>
           </table>
         </div>
+
+        {filteredCustomers.length > 0 && (
+          <TablePagination
+            page={customerPagination.page}
+            totalPages={customerPagination.totalPages}
+            totalItems={customerPagination.totalItems}
+            rangeStart={customerPagination.rangeStart}
+            rangeEnd={customerPagination.rangeEnd}
+            pageSize={customerPagination.pageSize}
+            onPageChange={customerPagination.setPage}
+            onPageSizeChange={customerPagination.setPageSize}
+            hasPrev={customerPagination.hasPrev}
+            hasNext={customerPagination.hasNext}
+          />
+        )}
 
         {customerModal && (
           <CustomerFormModal
@@ -192,6 +281,22 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
         </button>
       </form>
 
+      <TableFilters
+        resultCount={filteredWorkers.length}
+        totalCount={users.length}
+        hasActiveFilters={hasActiveFilters(workerFilters, workerFilterDefaults)}
+        onClear={() => setWorkerFilters(workerFilterDefaults)}
+      >
+        <FilterField label="Search" className="filter-field--grow">
+          <input
+            type="search"
+            placeholder="Filter by username"
+            value={workerFilters.search}
+            onChange={(e) => setWorkerFilters({ search: e.target.value })}
+          />
+        </FilterField>
+      </TableFilters>
+
       <div className="data-table-wrap data-table-wrap--scroll">
         <table className="data-table">
           <thead>
@@ -208,8 +313,14 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
                   No {title.toLowerCase()} yet.
                 </td>
               </tr>
+            ) : filteredWorkers.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="empty-cell">
+                  No {title.toLowerCase()} match the current filters.
+                </td>
+              </tr>
             ) : (
-              users.map((user) => (
+              workerPagination.paginatedItems.map((user) => (
                 <tr key={user.id}>
                   {editingId === user.id ? (
                     <>
@@ -282,6 +393,21 @@ export default function UserCrudPanel({ title, role, users, token, onChange, hid
           </tbody>
         </table>
       </div>
+
+      {filteredWorkers.length > 0 && (
+        <TablePagination
+          page={workerPagination.page}
+          totalPages={workerPagination.totalPages}
+          totalItems={workerPagination.totalItems}
+          rangeStart={workerPagination.rangeStart}
+          rangeEnd={workerPagination.rangeEnd}
+          pageSize={workerPagination.pageSize}
+          onPageChange={workerPagination.setPage}
+          onPageSizeChange={workerPagination.setPageSize}
+          hasPrev={workerPagination.hasPrev}
+          hasNext={workerPagination.hasNext}
+        />
+      )}
     </section>
   );
 }

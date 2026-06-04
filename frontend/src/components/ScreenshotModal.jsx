@@ -1,25 +1,39 @@
-import { useEffect, useState } from "react";
-import { apiFetch } from "../api";
+import { useState } from "react";
+import { apiUpload } from "../api";
 
 export default function ScreenshotModal({ application, token, onClose, onSaved }) {
-  const [screenshotLink, setScreenshotLink] = useState(application.screenshotLink || "");
+  const [screenshotFile, setScreenshotFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(application.screenshotUrl || null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    setScreenshotLink(application.screenshotLink || "");
-  }, [application]);
+  function handleFileChange(e) {
+    const file = e.target.files?.[0];
+    setScreenshotFile(file || null);
+    if (previewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(file ? URL.createObjectURL(file) : application.screenshotUrl || null);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!screenshotFile) {
+      setError("Please select a screenshot image to upload");
+      return;
+    }
+
     setError("");
     setSubmitting(true);
 
+    const formData = new FormData();
+    formData.append("screenshot", screenshotFile);
+
     try {
-      await apiFetch(`/worker/applications/${application.id}`, {
+      await apiUpload(`/worker/applications/${application.id}/screenshot`, {
         method: "PUT",
         token,
-        body: JSON.stringify({ screenshotLink }),
+        formData,
       });
       onSaved();
       onClose();
@@ -44,24 +58,33 @@ export default function ScreenshotModal({ application, token, onClose, onSaved }
         <form className="modal-form" onSubmit={handleSubmit}>
           {error && <div className="error-banner">{error}</div>}
 
+          {application.screenshotUrl && !screenshotFile && (
+            <p className="field-hint">Current screenshot will be replaced when you upload a new file.</p>
+          )}
+
           <label>
-            Screenshot link
+            Screenshot image
             <input
-              type="url"
-              value={screenshotLink}
-              onChange={(e) => setScreenshotLink(e.target.value)}
-              placeholder="https://..."
-              required
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              required={!application.screenshotUrl}
             />
           </label>
-          <p className="field-hint">Paste a public URL to the screenshot image.</p>
+          <p className="field-hint">Image is uploaded to AWS S3 (max 5 MB).</p>
+
+          {previewUrl && (
+            <div className="screenshot-upload-preview">
+              <img src={previewUrl} alt="Screenshot preview" />
+            </div>
+          )}
 
           <div className="modal-actions">
             <button type="button" className="btn-action" onClick={onClose} disabled={submitting}>
               Cancel
             </button>
             <button type="submit" className="btn-action btn-primary-sm" disabled={submitting}>
-              {submitting ? "Saving..." : "Save Screenshot"}
+              {submitting ? "Uploading..." : "Upload Screenshot"}
             </button>
           </div>
         </form>

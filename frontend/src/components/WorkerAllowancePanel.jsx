@@ -1,5 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../api";
+import { usePagination } from "../hooks/usePagination";
+import { hasActiveFilters, matchesText } from "../utils/tableUtils";
+import { FilterField, TableFilters } from "./TableFilters";
+import TablePagination from "./TablePagination";
+
+const allowanceDefaults = { workerSearch: "", customerSearch: "" };
 
 export default function WorkerAllowancePanel({
   workers,
@@ -11,6 +17,17 @@ export default function WorkerAllowancePanel({
   const [drafts, setDrafts] = useState({});
   const [savingId, setSavingId] = useState(null);
   const [error, setError] = useState("");
+  const [filters, setFilters] = useState(allowanceDefaults);
+
+  const visibleCustomers = useMemo(() => {
+    return customers.filter((c) => matchesText(c.username, filters.customerSearch));
+  }, [customers, filters.customerSearch]);
+
+  const visibleWorkers = useMemo(() => {
+    return workers.filter((w) => matchesText(w.username, filters.workerSearch));
+  }, [workers, filters.workerSearch]);
+
+  const pagination = usePagination(visibleWorkers, { resetKey: filters });
 
   useEffect(() => {
     const next = {};
@@ -73,22 +90,54 @@ export default function WorkerAllowancePanel({
       {customers.length === 0 ? (
         <p className="card-meta">Add customers before setting worker access.</p>
       ) : (
+        <>
+          <TableFilters
+            resultCount={visibleWorkers.length}
+            totalCount={workers.length}
+            hasActiveFilters={hasActiveFilters(filters, allowanceDefaults)}
+            onClear={() => setFilters(allowanceDefaults)}
+          >
+            <FilterField label="Worker" className="filter-field--grow">
+              <input
+                type="search"
+                placeholder="Filter workers by name"
+                value={filters.workerSearch}
+                onChange={(e) =>
+                  setFilters((f) => ({ ...f, workerSearch: e.target.value }))
+                }
+              />
+            </FilterField>
+            <FilterField label="Customer columns" className="filter-field--grow">
+              <input
+                type="search"
+                placeholder="Show customers matching name"
+                value={filters.customerSearch}
+                onChange={(e) =>
+                  setFilters((f) => ({ ...f, customerSearch: e.target.value }))
+                }
+              />
+            </FilterField>
+          </TableFilters>
+
+          {visibleWorkers.length === 0 || visibleCustomers.length === 0 ? (
+            <p className="card-meta">No rows match the current filters.</p>
+          ) : (
         <div className="data-table-wrap data-table-wrap--scroll">
           <table className="data-table allowance-table">
             <thead>
               <tr>
                 <th>Worker</th>
-                {customers.map((customer) => (
+                {visibleCustomers.map((customer) => (
                   <th key={customer.id}>{customer.username}</th>
                 ))}
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {workers.map((worker) => (
+              {pagination.paginatedItems.map((worker) => (
                 <tr key={worker.id}>
                   <td className="worker-name">{worker.username}</td>
-                  {customers.map((customer) => (
+                  {visibleCustomers.map((customer) => (
                     <td key={customer.id} className="checkbox-cell">
                       <input
                         type="checkbox"
@@ -113,6 +162,23 @@ export default function WorkerAllowancePanel({
             </tbody>
           </table>
         </div>
+          )}
+
+          {visibleWorkers.length > 0 && visibleCustomers.length > 0 && (
+            <TablePagination
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              rangeStart={pagination.rangeStart}
+              rangeEnd={pagination.rangeEnd}
+              pageSize={pagination.pageSize}
+              onPageChange={pagination.setPage}
+              onPageSizeChange={pagination.setPageSize}
+              hasPrev={pagination.hasPrev}
+              hasNext={pagination.hasNext}
+            />
+          )}
+        </>
       )}
     </section>
   );

@@ -41,6 +41,7 @@ async function seed() {
         street: "123 Main St",
         city: "Austin",
         state: "TX",
+        zip_code: "78701",
         ssn_last4: "1234",
         date_of_birth: "1990-05-15",
         hourly_rate_range: "$50–$80/hr",

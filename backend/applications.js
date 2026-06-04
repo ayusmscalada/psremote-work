@@ -1,3 +1,8 @@
+import { deleteScreenshotByUrl } from "./s3.js";
+import { DUPLICATE_JOB_LINK_ERROR, normalizeJobLink } from "./jobLink.js";
+
+export { DUPLICATE_JOB_LINK_ERROR };
+
 export const BID_STATUSES = ["not_yet", "expired", "completed", "error"];
 
 export const BID_STATUS_LABELS = {
@@ -12,6 +17,12 @@ export function formatApplication(application) {
     ...application,
     screenshotUrl: application.screenshotLink || null,
   };
+}
+
+export async function deleteApplicationScreenshot(application) {
+  if (application?.screenshotLink) {
+    await deleteScreenshotByUrl(application.screenshotLink);
+  }
 }
 
 export function buildApplicationData(body, existing = null) {
@@ -29,18 +40,16 @@ export function buildApplicationData(body, existing = null) {
     return { error: "Invalid bid status" };
   }
 
-  const screenshotLink =
-    body.screenshotLink !== undefined
-      ? body.screenshotLink?.trim() || null
-      : existing?.screenshotLink ?? null;
+  const screenshotLink = existing?.screenshotLink ?? null;
 
   if (nextBidStatus === "completed" && !screenshotLink) {
-    return { error: "Screenshot link is required when bid status is Completed" };
+    return { error: "Screenshot is required when bid status is Completed. Upload a screenshot first." };
   }
 
   return {
     data: {
       jobLink,
+      jobLinkNormalized: normalizeJobLink(jobLink),
       jobTitle,
       jobDescription,
       companyName,

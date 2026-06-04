@@ -55,10 +55,6 @@ export default function JobModal({
       bidStatus: form.bidStatus,
     };
 
-    if (isEdit && application.screenshotLink) {
-      payload.screenshotLink = application.screenshotLink;
-    }
-
     try {
       if (isEdit) {
         await apiFetch(`/worker/applications/${application.id}`, {
@@ -69,7 +65,7 @@ export default function JobModal({
       } else {
         if (form.bidStatus === "completed") {
           throw new Error(
-            "Set bid status to Completed after adding a screenshot link via Add Screenshot"
+            "Set bid status to Completed after uploading a screenshot via Add Screenshot"
           );
         }
 
@@ -111,6 +107,10 @@ export default function JobModal({
               placeholder="https://..."
               required
             />
+            <span className="field-hint">
+              The same job cannot be added twice for this customer. Query parameters (?…) are
+              ignored when comparing links.
+            </span>
           </label>
 
           <label>
@@ -162,7 +162,7 @@ export default function JobModal({
 
           {form.bidStatus === "completed" && !application?.screenshotLink && (
             <p className="field-hint">
-              Use Add Screenshot in the jobs table to provide a screenshot link before setting
+              Use Add Screenshot in the jobs table to upload a screenshot before setting
               status to Completed.
             </p>
           )}

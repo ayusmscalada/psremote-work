@@ -6,6 +6,7 @@ export const CUSTOMER_PROFILE_FIELDS = [
   { key: "street", label: "Street", type: "text", placeholder: "Street address" },
   { key: "city", label: "City", type: "text" },
   { key: "state", label: "State", type: "text" },
+  { key: "zipCode", label: "Zip code", type: "text", placeholder: "e.g. 78701" },
   {
     key: "ssnLast4",
     label: "Last 4 digits of SSN",

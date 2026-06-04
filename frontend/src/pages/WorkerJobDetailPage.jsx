@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { apiFetch } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { bidStatusLabel } from "../constants";
+import { formatDateTime } from "../utils/tableUtils";
 import AppShell from "../components/AppShell";
 import JobModal from "../components/JobModal";
 import JobDescriptionSection from "../components/JobDescriptionSection";
@@ -121,6 +122,10 @@ export default function WorkerJobDetailPage() {
               <span className={`status status-${application.bidStatus}`}>
                 {bidStatusLabel(application.bidStatus)}
               </span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Registered</span>
+              <span>{formatDateTime(application.createdAt)}</span>
             </div>
           </div>
 

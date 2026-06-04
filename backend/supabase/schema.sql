@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
   street TEXT,
   city TEXT,
   state TEXT,
+  zip_code TEXT,
   ssn_last4 TEXT,
   date_of_birth TEXT,
   hourly_rate_range TEXT,
@@ -28,6 +29,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS street TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS city TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS state TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS zip_code TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS ssn_last4 TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS hourly_rate_range TEXT;
@@ -64,6 +66,7 @@ CREATE TABLE IF NOT EXISTS job_applications (
   worker_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   customer_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   job_link TEXT NOT NULL,
+  job_link_normalized TEXT,
   job_title TEXT NOT NULL,
   job_description TEXT NOT NULL,
   company_name TEXT NOT NULL,
@@ -74,6 +77,10 @@ CREATE TABLE IF NOT EXISTS job_applications (
 
 -- Migrate existing databases
 ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS screenshot_link TEXT;
+ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS job_link_normalized TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_job_applications_customer_normalized_link
+  ON job_applications (customer_id, job_link_normalized);
 
 CREATE INDEX IF NOT EXISTS idx_job_applications_worker_customer
   ON job_applications(worker_id, customer_id);

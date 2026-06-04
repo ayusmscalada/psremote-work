@@ -1,3 +1,4 @@
+import { DUPLICATE_JOB_LINK_ERROR, normalizeJobLink } from "../jobLink.js";
 import { supabase } from "../supabase/client.js";
 import { mapApplication, toApplicationRow } from "./mappers.js";
 
@@ -41,7 +42,67 @@ export async function findWorkerApplication(workerId, applicationId) {
   return application;
 }
 
+export async function findCustomerApplicationByNormalizedJobLink(
+  customerId,
+  jobLink,
+  excludeApplicationId = null
+) {
+  const normalized = normalizeJobLink(jobLink);
+  if (!normalized) return null;
+
+  let query = supabase
+    .from("job_applications")
+    .select("id")
+    .eq("customer_id", customerId)
+    .eq("job_link_normalized", normalized)
+    .limit(1);
+
+  if (excludeApplicationId != null) {
+    query = query.neq("id", excludeApplicationId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    if (error.message?.includes("job_link_normalized")) {
+      return findCustomerApplicationByNormalizedJobLinkFallback(
+        customerId,
+        normalized,
+        excludeApplicationId
+      );
+    }
+    throw new Error(error.message);
+  }
+
+  return data?.[0] ? mapApplication(data[0]) : null;
+}
+
+async function findCustomerApplicationByNormalizedJobLinkFallback(
+  customerId,
+  normalized,
+  excludeApplicationId
+) {
+  const applications = await getApplicationsForCustomer(customerId);
+  return (
+    applications.find(
+      (app) =>
+        app.id !== excludeApplicationId && normalizeJobLink(app.jobLink) === normalized
+    ) || null
+  );
+}
+
+async function assertUniqueJobLinkForCustomer(customerId, fields, excludeApplicationId = null) {
+  const existing = await findCustomerApplicationByNormalizedJobLink(
+    customerId,
+    fields.jobLink,
+    excludeApplicationId
+  );
+  if (existing) {
+    throw new Error(DUPLICATE_JOB_LINK_ERROR);
+  }
+}
+
 export async function createApplication({ workerId, customerId, ...fields }) {
+  await assertUniqueJobLinkForCustomer(customerId, fields);
   const { data, error } = await supabase
     .from("job_applications")
     .insert({
@@ -52,11 +113,28 @@ export async function createApplication({ workerId, customerId, ...fields }) {
     .select("*")
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isDuplicateJobLinkError(error)) {
+      throw new Error(DUPLICATE_JOB_LINK_ERROR);
+    }
+    throw new Error(error.message);
+  }
   return mapApplication(data);
 }
 
-export async function updateApplication(id, fields) {
+function isDuplicateJobLinkError(error) {
+  return (
+    error.code === "23505" ||
+    error.message?.includes("idx_job_applications_customer_normalized_link") ||
+    error.message?.includes("duplicate key")
+  );
+}
+
+export async function updateApplication(id, fields, { customerId } = {}) {
+  if (customerId != null && fields.jobLink !== undefined) {
+    await assertUniqueJobLinkForCustomer(customerId, fields, id);
+  }
+
   const { data, error } = await supabase
     .from("job_applications")
     .update(toApplicationRow(fields))
@@ -64,7 +142,12 @@ export async function updateApplication(id, fields) {
     .select("*")
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isDuplicateJobLinkError(error)) {
+      throw new Error(DUPLICATE_JOB_LINK_ERROR);
+    }
+    throw new Error(error.message);
+  }
   return mapApplication(data);
 }
 
@@ -92,4 +175,34 @@ export async function countCompletedApplicationsForCustomer(customerId) {
 
   if (error) throw new Error(error.message);
   return count || 0;
+}
+
+/** Backfill job_link_normalized after schema patch (npm run db:patch). */
+export async function backfillJobLinkNormalized() {
+  const { data, error } = await supabase
+    .from("job_applications")
+    .select("id, job_link, job_link_normalized");
+
+  if (error) {
+    if (error.message?.includes("job_link_normalized")) {
+      return { updated: 0, skipped: true };
+    }
+    throw new Error(error.message);
+  }
+
+  let updated = 0;
+  for (const row of data || []) {
+    const normalized = normalizeJobLink(row.job_link);
+    if (row.job_link_normalized === normalized) continue;
+
+    const { error: updateError } = await supabase
+      .from("job_applications")
+      .update({ job_link_normalized: normalized })
+      .eq("id", row.id);
+
+    if (updateError) throw new Error(updateError.message);
+    updated += 1;
+  }
+
+  return { updated, skipped: false };
 }

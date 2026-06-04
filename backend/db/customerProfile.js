@@ -7,6 +7,7 @@ const FIELD_MAP = {
   street: "street",
   city: "city",
   state: "state",
+  zipCode: "zip_code",
   ssnLast4: "ssn_last4",
   dateOfBirth: "date_of_birth",
   hourlyRateRange: "hourly_rate_range",

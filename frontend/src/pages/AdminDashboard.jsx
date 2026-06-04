@@ -5,6 +5,7 @@ import AppShell from "../components/AppShell";
 import UserCrudPanel from "../components/UserCrudPanel";
 import WorkerAllowancePanel from "../components/WorkerAllowancePanel";
 import AdminProfilePanel from "../components/AdminProfilePanel";
+import { AdminBidsTable, AdminJobsTable } from "../components/AdminJobsBidsTables";
 import "../components/AppShell.css";
 import "./AdminDashboard.css";
 
@@ -162,55 +163,11 @@ export default function AdminDashboard() {
           <>
             <div className="admin-panel">
               <h2 className="section-title">All Jobs</h2>
-              {jobs.length === 0 ? (
-                <p className="card-meta">No jobs.</p>
-              ) : (
-                <div className="admin-jobs-list">
-                  {jobs.map((job) => (
-                    <div key={job.id} className="admin-job-item">
-                      <div className="card-title">{job.title}</div>
-                      <div className="card-meta">
-                        Budget: ${job.budget.toLocaleString()} · Customer #{job.customerId} ·{" "}
-                        <span className={`status status-${job.status}`}>
-                          {job.status.replace("_", " ")}
-                        </span>
-                      </div>
-                      <p>{job.description}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <AdminJobsTable jobs={jobs} />
             </div>
             <div className="admin-panel">
               <h2 className="section-title">Recent Bids</h2>
-              {bids.length === 0 ? (
-                <p className="card-meta">No bids.</p>
-              ) : (
-                <div className="data-table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Job ID</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                        <th>Message</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {bids.map((bid) => (
-                        <tr key={bid.id}>
-                          <td>#{bid.jobId}</td>
-                          <td>${bid.amount.toLocaleString()}</td>
-                          <td>
-                            <span className={`status status-${bid.status}`}>{bid.status}</span>
-                          </td>
-                          <td>{bid.message}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <AdminBidsTable bids={bids} />
             </div>
           </>
         );

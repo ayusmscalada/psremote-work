@@ -52,12 +52,13 @@ export function mapApplication(row) {
 }
 
 export function toApplicationRow(data) {
-  return {
-    job_link: data.jobLink,
-    job_title: data.jobTitle,
-    job_description: data.jobDescription,
-    company_name: data.companyName,
-    bid_status: data.bidStatus,
-    screenshot_link: data.screenshotLink,
-  };
+  const row = {};
+  if (data.jobLink !== undefined) row.job_link = data.jobLink;
+  if (data.jobTitle !== undefined) row.job_title = data.jobTitle;
+  if (data.jobDescription !== undefined) row.job_description = data.jobDescription;
+  if (data.companyName !== undefined) row.company_name = data.companyName;
+  if (data.bidStatus !== undefined) row.bid_status = data.bidStatus;
+  if (data.screenshotLink !== undefined) row.screenshot_link = data.screenshotLink;
+  if (data.jobLinkNormalized !== undefined) row.job_link_normalized = data.jobLinkNormalized;
+  return row;
 }

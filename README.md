@@ -19,7 +19,8 @@ Create a [Supabase](https://supabase.com) project, then:
 1. Copy `backend/.env.example` to `backend/.env`
 2. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (Settings → API → Project API keys)
 3. Set `SUPABASE_DB_PASSWORD` (Settings → Database → Database password) — used once to create tables
-4. Apply schema and seed demo data:
+4. Set AWS S3 variables for worker screenshot uploads (`AWS_S3_BUCKET`, `AWS_S3_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`). The bucket must allow public `GetObject` on `screenshots/*` (bucket policy example below).
+5. Apply schema and seed demo data:
 
 ```bash
 npm run db:migrate
@@ -63,7 +64,7 @@ Open [http://localhost:5173](http://localhost:5173) and sign in with one of the 
 ## Project structure
 
 ```
-backend/     Express API with JWT auth, Supabase Postgres + Storage
+backend/     Express API with JWT auth, Supabase Postgres, AWS S3 screenshots
 frontend/    React (Vite) SPA with role dashboards
 ```
 
@@ -87,7 +88,29 @@ frontend/    React (Vite) SPA with role dashboards
 - `GET /api/customer/jobs` — platform jobs (customer)
 - `GET /api/worker/jobs` — allowed customers for worker
 - `GET /api/worker/customers/:id` — customer profile and applications (worker)
-- `POST /api/worker/customers/:id/applications` — add job application (worker)
+- `POST /api/worker/customers/:id/applications` — add job application (worker). Duplicate job links for the same customer are rejected (query strings and URL fragments are ignored when comparing links).
 - `GET /api/worker/applications/:id` — get job application (worker)
 - `PUT /api/worker/applications/:id` — update job application (worker)
+- `PUT /api/worker/applications/:id/screenshot` — upload screenshot image to S3 (worker, multipart field `screenshot`)
 - `DELETE /api/worker/applications/:id` — delete job application (worker)
+
+### S3 bucket policy (public read for screenshots)
+
+Objects are stored under `screenshots/{applicationId}/`. Example bucket policy (replace `YOUR-BUCKET`):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadScreenshots",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::YOUR-BUCKET/screenshots/*"
+    }
+  ]
+}
+```
+
+Your IAM user needs `s3:PutObject` and `s3:DeleteObject` on that prefix.

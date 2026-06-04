@@ -6,6 +6,7 @@ export const CUSTOMER_PROFILE_FIELDS = [
   { key: "street", label: "Street", type: "text", placeholder: "123 Main St" },
   { key: "city", label: "City", type: "text", placeholder: "City" },
   { key: "state", label: "State", type: "text", placeholder: "State / Province" },
+  { key: "zipCode", label: "Zip code", type: "text", placeholder: "e.g. 78701" },
   { key: "ssnLast4", label: "Last 4 digits of SSN", type: "text", placeholder: "1234", maxLength: 4 },
   { key: "dateOfBirth", label: "Date of birth", type: "date" },
   { key: "hourlyRateRange", label: "Hourly rate range", type: "text", placeholder: "e.g. $50–$75/hr" },

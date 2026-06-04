@@ -137,6 +137,23 @@ export async function applyPatchOnly() {
   throw new Error(migrationHelpError());
 }
 
+const jobLinkUniqueIndexSql = `
+CREATE UNIQUE INDEX IF NOT EXISTS idx_job_applications_customer_normalized_link
+  ON job_applications (customer_id, job_link_normalized);
+`;
+
+export async function applyJobLinkUniqueIndex() {
+  if (await applySchemaViaManagementApi("", jobLinkUniqueIndexSql)) {
+    return;
+  }
+
+  if (await applySchemaViaPg("", jobLinkUniqueIndexSql)) {
+    return;
+  }
+
+  throw new Error(migrationHelpError());
+}
+
 export function isMissingTableError(message) {
   return (
     message.includes("Could not find the table") ||

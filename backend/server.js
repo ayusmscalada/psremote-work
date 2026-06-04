@@ -11,6 +11,7 @@ import {
 } from "./db/allowances.js";
 import {
   buildApplicationData,
+  deleteApplicationScreenshot,
   formatApplication,
 } from "./applications.js";
 import {
@@ -42,6 +43,8 @@ import {
   usernameExists,
 } from "./db/users.js";
 import { buildCustomerProfileResponse, pickCustomerProfile, validateCustomerProfile } from "./db/customerProfile.js";
+import { uploadScreenshot } from "./s3.js";
+import { screenshotUpload } from "./upload.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -62,7 +65,9 @@ function asyncHandler(handler) {
               message.includes("Invalid") ||
               message.includes("must be")
             ? 400
-            : message.includes("exists") || message.includes("duplicate")
+            : message.includes("exists") ||
+                message.includes("duplicate") ||
+                message.includes("already registered")
               ? 409
               : 500;
       res.status(status).json({ error: message });
@@ -506,6 +511,34 @@ app.get(
 );
 
 app.put(
+  "/api/worker/applications/:id/screenshot",
+  authMiddleware,
+  requireRole("worker"),
+  screenshotUpload.single("screenshot"),
+  asyncHandler(async (req, res) => {
+    const application = await findWorkerApplication(req.user.id, req.params.id);
+    if (!application) {
+      return res.status(404).json({ error: "Job application not found" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "Screenshot image file is required" });
+    }
+
+    if (application.screenshotLink) {
+      await deleteApplicationScreenshot(application);
+    }
+
+    const uploaded = await uploadScreenshot(req.file, application.id);
+    const updated = await updateApplication(application.id, {
+      screenshotLink: uploaded.publicUrl,
+    });
+
+    res.json({ application: formatApplication(updated) });
+  })
+);
+
+app.put(
   "/api/worker/applications/:id",
   authMiddleware,
   requireRole("worker"),
@@ -518,7 +551,9 @@ app.put(
     const parsed = buildApplicationData(req.body, application);
     if (parsed.error) return res.status(400).json({ error: parsed.error });
 
-    const updated = await updateApplication(application.id, parsed.data);
+    const updated = await updateApplication(application.id, parsed.data, {
+      customerId: application.customerId,
+    });
     res.json({ application: formatApplication(updated) });
   })
 );
@@ -533,10 +568,21 @@ app.delete(
       return res.status(404).json({ error: "Job application not found" });
     }
 
+    await deleteApplicationScreenshot(application);
     await deleteApplication(application.id);
     res.json({ success: true });
   })
 );
+
+app.use((err, req, res, next) => {
+  if (err?.code === "LIMIT_FILE_SIZE") {
+    return res.status(400).json({ error: "Screenshot must be 5 MB or smaller" });
+  }
+  if (err?.message?.includes("Screenshot must be an image")) {
+    return res.status(400).json({ error: err.message });
+  }
+  next(err);
+});
 
 app.listen(PORT, () => {
   console.log(`API running on http://localhost:${PORT}`);
