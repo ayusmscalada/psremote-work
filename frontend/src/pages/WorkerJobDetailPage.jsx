@@ -21,12 +21,13 @@ export default function WorkerJobDetailPage() {
   const { customerId, jobId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [application, setApplication] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
   const customerUsername =
     location.state?.customerUsername || `Customer #${customerId}`;
@@ -43,6 +44,30 @@ export default function WorkerJobDetailPage() {
       .finally(() => setLoading(false));
   }, [jobId, token]);
 
+  async function handleClaimBid() {
+    if (
+      !window.confirm(
+        `Take bid for "${application.jobTitle}"? You will become the assignee and can edit it.`
+      )
+    ) {
+      return;
+    }
+
+    setClaiming(true);
+    setError("");
+    try {
+      const result = await apiFetch(`/worker/applications/${jobId}/claim-bid`, {
+        method: "POST",
+        token,
+      });
+      setApplication(result.application);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setClaiming(false);
+    }
+  }
+
   async function handleDelete() {
     if (!window.confirm(`Delete job "${application.jobTitle}"?`)) return;
 
@@ -53,9 +78,7 @@ export default function WorkerJobDetailPage() {
         method: "DELETE",
         token,
       });
-      navigate("/worker", {
-        state: { selectedCustomerId: Number(customerId), section: "customers" },
-      });
+      navigate(`/worker?section=${backSection}&customerId=${customerId}`);
     } catch (err) {
       setError(err.message);
       setDeleting(false);
@@ -71,14 +94,14 @@ export default function WorkerJobDetailPage() {
     if (error && !application) return <div className="error-banner">{error}</div>;
     if (!application) return <div className="error-banner">Job not found</div>;
 
+    const isOwned =
+      application.isOwnedByMe ??
+      (user?.id == null || application.workerId === user?.id);
+
     return (
       <>
         <Link
-          to="/worker"
-          state={{
-            selectedCustomerId: Number(customerId),
-            section: backSection,
-          }}
+          to={`/worker?section=${backSection}&customerId=${customerId}`}
           className="back-link"
         >
           ← Back to {backSection === "jobs" ? "Jobs" : customerUsername}
@@ -90,21 +113,35 @@ export default function WorkerJobDetailPage() {
             <p className="app-page-desc">{application.companyName}</p>
           </div>
           <div className="job-detail-actions">
-            <button
-              type="button"
-              className="btn-action btn-edit"
-              onClick={() => setShowEditModal(true)}
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              className="btn-action btn-delete"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
-              {deleting ? "Deleting..." : "Delete"}
-            </button>
+            {!isOwned && (
+              <button
+                type="button"
+                className="btn-action btn-primary-sm"
+                onClick={handleClaimBid}
+                disabled={claiming}
+              >
+                {claiming ? "Taking bid..." : "Take Bid"}
+              </button>
+            )}
+            {isOwned && (
+              <>
+                <button
+                  type="button"
+                  className="btn-action btn-edit"
+                  onClick={() => setShowEditModal(true)}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="btn-action btn-delete"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting..." : "Delete"}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -132,6 +169,17 @@ export default function WorkerJobDetailPage() {
               <span className="detail-label">Registered</span>
               <span>{formatDateTime(application.createdAt)}</span>
             </div>
+            <div className="detail-item">
+              <span className="detail-label">Registered by</span>
+              <span>{application.registeredByUsername || "—"}</span>
+            </div>
+            {application.assigneeUsername &&
+              application.assigneeUsername !== application.registeredByUsername && (
+                <div className="detail-item">
+                  <span className="detail-label">Assigned to</span>
+                  <span>{application.assigneeUsername}</span>
+                </div>
+              )}
           </div>
 
           <JobDescriptionSection description={application.jobDescription} />
@@ -156,7 +204,7 @@ export default function WorkerJobDetailPage() {
           </section>
         </div>
 
-        {showEditModal && (
+        {showEditModal && isOwned && (
           <JobModal
             customerId={Number(customerId)}
             customerName={customerUsername}

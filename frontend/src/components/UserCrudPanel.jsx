@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../api";
-import { hasActiveFilters } from "../utils/tableUtils";
 import { appendPaginationParams } from "../utils/listQuery";
 import { useServerPagination } from "../hooks/useServerPagination";
+import { useUrlFilterState } from "../hooks/useUrlFilterState";
 import { FilterField, TableFilters } from "./TableFilters";
 import TablePagination from "./TablePagination";
 import CustomerFormModal from "./CustomerFormModal";
@@ -23,13 +23,13 @@ export default function UserCrudPanel({ title, role, token, onChange, hideTitle 
   const [customerModal, setCustomerModal] = useState(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [workerFilters, setWorkerFilters] = useState(workerFilterDefaults);
-  const [customerFilters, setCustomerFilters] = useState(customerFilterDefaults);
-
   const endpoint = `/admin/${role}s`;
-  const filters = isCustomer ? customerFilters : workerFilters;
-  const filterDefaults = isCustomer ? customerFilterDefaults : workerFilterDefaults;
-  const pagination = useServerPagination();
+  const filterDefaults = useMemo(
+    () => (isCustomer ? customerFilterDefaults : workerFilterDefaults),
+    [isCustomer]
+  );
+  const { filters, setFilter, clearFilters, hasActiveFilters } = useUrlFilterState(filterDefaults);
+  const pagination = useServerPagination(undefined, { syncToUrl: true });
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -72,18 +72,7 @@ export default function UserCrudPanel({ title, role, token, onChange, hideTitle 
   }
 
   function updateFilter(key, value) {
-    if (isCustomer) {
-      setCustomerFilters((f) => ({ ...f, [key]: value }));
-    } else {
-      setWorkerFilters({ search: value });
-    }
-    pagination.resetPage();
-  }
-
-  function clearFilters() {
-    if (isCustomer) setCustomerFilters(customerFilterDefaults);
-    else setWorkerFilters(workerFilterDefaults);
-    pagination.resetPage();
+    setFilter(key, value);
   }
 
   async function handleCreateWorker(e) {
@@ -175,14 +164,14 @@ export default function UserCrudPanel({ title, role, token, onChange, hideTitle 
         <TableFilters
           resultCount={pagination.total}
           totalCount={pagination.total}
-          hasActiveFilters={hasActiveFilters(customerFilters, customerFilterDefaults)}
+          hasActiveFilters={hasActiveFilters}
           onClear={clearFilters}
         >
           <FilterField label="Search" className="filter-field--grow">
             <input
               type="search"
               placeholder="Username, email, phone, tech stack…"
-              value={customerFilters.search}
+              value={filters.search}
               onChange={(e) => updateFilter("search", e.target.value)}
             />
           </FilterField>
@@ -190,7 +179,7 @@ export default function UserCrudPanel({ title, role, token, onChange, hideTitle 
             <input
               type="search"
               placeholder="Filter by tech stack"
-              value={customerFilters.techStack}
+              value={filters.techStack}
               onChange={(e) => updateFilter("techStack", e.target.value)}
             />
           </FilterField>
@@ -308,14 +297,14 @@ export default function UserCrudPanel({ title, role, token, onChange, hideTitle 
       <TableFilters
         resultCount={pagination.total}
         totalCount={pagination.total}
-        hasActiveFilters={hasActiveFilters(workerFilters, workerFilterDefaults)}
+        hasActiveFilters={hasActiveFilters}
         onClear={clearFilters}
       >
         <FilterField label="Search" className="filter-field--grow">
           <input
             type="search"
             placeholder="Filter by username"
-            value={workerFilters.search}
+            value={filters.search}
             onChange={(e) => updateFilter("search", e.target.value)}
           />
         </FilterField>

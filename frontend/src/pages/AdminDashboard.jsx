@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useDashboardSection } from "../hooks/useDashboardSection";
 import AppShell from "../components/AppShell";
 import UserCrudPanel from "../components/UserCrudPanel";
 import WorkerAllowancePanel from "../components/WorkerAllowancePanel";
@@ -45,9 +46,11 @@ const sectionMeta = {
   },
 };
 
+const VALID_SECTIONS = adminNav.map((item) => item.id);
+
 export default function AdminDashboard() {
   const { token } = useAuth();
-  const [activeSection, setActiveSection] = useState("overview");
+  const { section: activeSection, setSection } = useDashboardSection("overview", VALID_SECTIONS);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
@@ -167,7 +170,7 @@ export default function AdminDashboard() {
       subtitle="Admin Console"
       navItems={adminNav}
       activeSection={activeSection}
-      onNavigate={setActiveSection}
+      onNavigate={setSection}
     >
       <header className="admin-page-header">
         <h1 className="admin-page-title">{meta.title}</h1>

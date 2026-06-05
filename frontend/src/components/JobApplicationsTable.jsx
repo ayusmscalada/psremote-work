@@ -20,8 +20,9 @@ export default function JobApplicationsTable({
 
   const { filters, setFilter, clearFilters, hasActiveFilters } = useJobApplicationFilterState({
     includeWorker: showWorker,
+    syncToUrl: true,
   });
-  const pagination = useServerPagination();
+  const pagination = useServerPagination(undefined, { syncToUrl: true });
 
   const loadApplications = useCallback(async () => {
     setLoading(true);
@@ -52,12 +53,10 @@ export default function JobApplicationsTable({
 
   function handleSetFilter(key, value) {
     setFilter(key, value);
-    pagination.resetPage();
   }
 
   function handleClearFilters() {
     clearFilters();
-    pagination.resetPage();
   }
 
   if (!loading && applications.length === 0 && !hasActiveFilters) {
@@ -90,7 +89,7 @@ export default function JobApplicationsTable({
                 <th>Registered</th>
                 <th>Title</th>
                 <th>Company</th>
-                {showWorker && <th>Worker</th>}
+                {showWorker && <th>Registered by</th>}
                 <th>Job link</th>
                 <th>Bid status</th>
                 <th>Screenshot</th>

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiFetch } from "../api";
+import { useAuth } from "../context/AuthContext";
 import { useJobApplicationFilterState } from "../hooks/useJobApplicationFilterState";
 import { useServerPagination } from "../hooks/useServerPagination";
 import { buildApplicationsQuery } from "../utils/listQuery";
+import { setQueryParam, updateSearchParams } from "../utils/urlQuery";
 import JobSpreadsheet from "./JobSpreadsheet";
 import JobModal from "./JobModal";
 import ScreenshotModal from "./ScreenshotModal";
@@ -12,8 +14,11 @@ const ALL_CUSTOMERS = "all";
 
 export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCounts }) {
   const navigate = useNavigate();
-  const [customerFilter, setCustomerFilter] = useState(ALL_CUSTOMERS);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
+  const customerFilter = searchParams.get("customerId") || ALL_CUSTOMERS;
   const [applications, setApplications] = useState([]);
+  const [workerOptions, setWorkerOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionError, setActionError] = useState("");
   const [modalMode, setModalMode] = useState(null);
@@ -21,9 +26,13 @@ export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCoun
   const [screenshotApplication, setScreenshotApplication] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [assigningCustomerId, setAssigningCustomerId] = useState(null);
+  const [claimingId, setClaimingId] = useState(null);
 
-  const { filters, setFilter, clearFilters, hasActiveFilters } = useJobApplicationFilterState();
-  const pagination = useServerPagination();
+  const { filters, setFilter, clearFilters, hasActiveFilters } = useJobApplicationFilterState({
+    includeWorker: true,
+    syncToUrl: true,
+  });
+  const pagination = useServerPagination(undefined, { syncToUrl: true });
 
   const selectedCustomer =
     customerFilter === ALL_CUSTOMERS
@@ -49,6 +58,9 @@ export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCoun
       const result = await apiFetch(`/worker/applications${query}`, { token });
       setApplications(result.applications || []);
       pagination.applyResponse(result.pagination);
+      if (result.filterOptions?.workers) {
+        setWorkerOptions(result.filterOptions.workers);
+      }
     } catch (err) {
       setActionError(err.message);
       setApplications([]);
@@ -67,12 +79,10 @@ export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCoun
 
   function handleSetFilter(key, value) {
     setFilter(key, value);
-    pagination.resetPage();
   }
 
   function handleClearFilters() {
     clearFilters();
-    pagination.resetPage();
   }
 
   useEffect(() => {
@@ -94,9 +104,12 @@ export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCoun
   }
 
   function openJobDetail(app) {
-    navigate(`/worker/customers/${app.customerId}/jobs/${app.id}`, {
-      state: { customerUsername: app.customerUsername, section: "jobs" },
-    });
+    const params = new URLSearchParams(searchParams);
+    params.set("section", "jobs");
+    navigate(
+      `/worker/customers/${app.customerId}/jobs/${app.id}?${params.toString()}`,
+      { state: { customerUsername: app.customerUsername, section: "jobs" } }
+    );
   }
 
   async function handleCustomerChange(application, newCustomerId) {
@@ -115,6 +128,30 @@ export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCoun
       setActionError(err.message);
     } finally {
       setAssigningCustomerId(null);
+    }
+  }
+
+  async function handleClaimBid(application) {
+    if (
+      !window.confirm(
+        `Take bid for "${application.jobTitle}"? You will become the assignee and can edit it.`
+      )
+    ) {
+      return;
+    }
+
+    setActionError("");
+    setClaimingId(application.id);
+    try {
+      await apiFetch(`/worker/applications/${application.id}/claim-bid`, {
+        method: "POST",
+        token,
+      });
+      await handleSaved();
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setClaimingId(null);
     }
   }
 
@@ -155,8 +192,16 @@ export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCoun
           <select
             value={customerFilter}
             onChange={(e) => {
-              setCustomerFilter(e.target.value);
-              pagination.resetPage();
+              const value = e.target.value;
+              updateSearchParams(setSearchParams, (params) => {
+                setQueryParam(
+                  params,
+                  "customerId",
+                  value === ALL_CUSTOMERS ? null : value,
+                  ""
+                );
+                params.delete("page");
+              });
             }}
           >
             <option value={ALL_CUSTOMERS}>All customers</option>
@@ -182,8 +227,9 @@ export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCoun
       </div>
 
       <p className="card-meta worker-jobs-hint">
-        Use the <strong>Customer (assign)</strong> dropdown on each row to move a job to another
-        customer.{" "}
+        All jobs for your customers are listed here, including those registered by other workers.
+        Use <strong>Take Bid</strong> to claim someone else&apos;s job. Use{" "}
+        <strong>Customer (assign)</strong> to move your own jobs to another customer.{" "}
         {customerFilter === ALL_CUSTOMERS
           ? "Filter above limits which jobs are listed."
           : `Showing jobs for ${selectedCustomer?.username}.`}
@@ -191,6 +237,8 @@ export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCoun
 
       <JobSpreadsheet
         applications={applications}
+        showRegisteredBy
+        currentWorkerId={user?.id}
         customerAssign
         allowedCustomers={allowedCustomers}
         onCustomerChange={handleCustomerChange}
@@ -201,6 +249,7 @@ export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCoun
         hasActiveFilters={hasActiveFilters}
         resultCount={pagination.total}
         totalCount={pagination.total}
+        workerOptions={workerOptions}
         pagination={pagination}
         onPageChange={pagination.setPage}
         onPageSizeChange={pagination.setPageSize}
@@ -215,6 +264,8 @@ export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCoun
           setModalMode("screenshot");
         }}
         onDelete={handleDelete}
+        onClaimBid={handleClaimBid}
+        claimingId={claimingId}
         deletingId={deletingId}
       />
 

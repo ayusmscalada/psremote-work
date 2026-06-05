@@ -1,19 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../api";
-import { hasActiveFilters } from "../utils/tableUtils";
 import { appendPaginationParams } from "../utils/listQuery";
 import { useServerPagination } from "../hooks/useServerPagination";
+import { useUrlFilterState } from "../hooks/useUrlFilterState";
 import { FilterField, TableFilters } from "./TableFilters";
 import TablePagination from "./TablePagination";
 
-const jobDefaults = { search: "", status: "all", customerId: "" };
-const bidDefaults = { search: "", status: "all", jobId: "" };
+const jobDefaults = { jobSearch: "", jobStatus: "all", jobCustomerId: "" };
+const bidDefaults = { bidSearch: "", bidStatus: "all", bidJobId: "" };
 
 export function AdminJobsTable({ token }) {
-  const [filters, setFilters] = useState(jobDefaults);
+  const { filters, setFilter, clearFilters, hasActiveFilters } = useUrlFilterState(jobDefaults, {
+    pageKey: "jobPage",
+  });
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const pagination = useServerPagination();
+  const pagination = useServerPagination(undefined, {
+    syncToUrl: true,
+    pageKey: "jobPage",
+    pageSizeKey: "jobPageSize",
+  });
 
   const loadJobs = useCallback(async () => {
     setLoading(true);
@@ -23,9 +29,9 @@ export function AdminJobsTable({ token }) {
         page: pagination.page,
         pageSize: pagination.pageSize,
       });
-      if (filters.search) params.set("search", filters.search);
-      if (filters.status !== "all") params.set("status", filters.status);
-      if (filters.customerId) params.set("customerId", filters.customerId);
+      if (filters.jobSearch) params.set("search", filters.jobSearch);
+      if (filters.jobStatus !== "all") params.set("status", filters.jobStatus);
+      if (filters.jobCustomerId) params.set("customerId", filters.jobCustomerId);
 
       const result = await apiFetch(`/admin/platform-jobs?${params.toString()}`, { token });
       setJobs(result.jobs || []);
@@ -41,32 +47,27 @@ export function AdminJobsTable({ token }) {
     loadJobs();
   }, [loadJobs]);
 
-  function setFilter(key, value) {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-    pagination.resetPage();
-  }
-
   return (
     <>
       <TableFilters
         resultCount={pagination.total}
         totalCount={pagination.total}
-        hasActiveFilters={hasActiveFilters(filters, jobDefaults)}
-        onClear={() => {
-          setFilters(jobDefaults);
-          pagination.resetPage();
-        }}
+        hasActiveFilters={hasActiveFilters}
+        onClear={clearFilters}
       >
         <FilterField label="Search" className="filter-field--grow">
           <input
             type="search"
             placeholder="Title, description, customer ID…"
-            value={filters.search}
-            onChange={(e) => setFilter("search", e.target.value)}
+            value={filters.jobSearch}
+            onChange={(e) => setFilter("jobSearch", e.target.value)}
           />
         </FilterField>
         <FilterField label="Status">
-          <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)}>
+          <select
+            value={filters.jobStatus}
+            onChange={(e) => setFilter("jobStatus", e.target.value)}
+          >
             <option value="all">All</option>
             <option value="open">open</option>
             <option value="in_progress">in progress</option>
@@ -77,8 +78,8 @@ export function AdminJobsTable({ token }) {
             type="text"
             inputMode="numeric"
             placeholder="e.g. 10"
-            value={filters.customerId}
-            onChange={(e) => setFilter("customerId", e.target.value)}
+            value={filters.jobCustomerId}
+            onChange={(e) => setFilter("jobCustomerId", e.target.value)}
           />
         </FilterField>
       </TableFilters>
@@ -140,10 +141,16 @@ export function AdminJobsTable({ token }) {
 }
 
 export function AdminBidsTable({ token }) {
-  const [filters, setFilters] = useState(bidDefaults);
+  const { filters, setFilter, clearFilters, hasActiveFilters } = useUrlFilterState(bidDefaults, {
+    pageKey: "bidPage",
+  });
   const [bids, setBids] = useState([]);
   const [loading, setLoading] = useState(true);
-  const pagination = useServerPagination();
+  const pagination = useServerPagination(undefined, {
+    syncToUrl: true,
+    pageKey: "bidPage",
+    pageSizeKey: "bidPageSize",
+  });
 
   const loadBids = useCallback(async () => {
     setLoading(true);
@@ -153,9 +160,9 @@ export function AdminBidsTable({ token }) {
         page: pagination.page,
         pageSize: pagination.pageSize,
       });
-      if (filters.search) params.set("search", filters.search);
-      if (filters.status !== "all") params.set("status", filters.status);
-      if (filters.jobId) params.set("jobId", filters.jobId);
+      if (filters.bidSearch) params.set("search", filters.bidSearch);
+      if (filters.bidStatus !== "all") params.set("status", filters.bidStatus);
+      if (filters.bidJobId) params.set("jobId", filters.bidJobId);
 
       const result = await apiFetch(`/admin/platform-bids?${params.toString()}`, { token });
       setBids(result.bids || []);
@@ -171,32 +178,27 @@ export function AdminBidsTable({ token }) {
     loadBids();
   }, [loadBids]);
 
-  function setFilter(key, value) {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-    pagination.resetPage();
-  }
-
   return (
     <>
       <TableFilters
         resultCount={pagination.total}
         totalCount={pagination.total}
-        hasActiveFilters={hasActiveFilters(filters, bidDefaults)}
-        onClear={() => {
-          setFilters(bidDefaults);
-          pagination.resetPage();
-        }}
+        hasActiveFilters={hasActiveFilters}
+        onClear={clearFilters}
       >
         <FilterField label="Search" className="filter-field--grow">
           <input
             type="search"
             placeholder="Message, amount, status…"
-            value={filters.search}
-            onChange={(e) => setFilter("search", e.target.value)}
+            value={filters.bidSearch}
+            onChange={(e) => setFilter("bidSearch", e.target.value)}
           />
         </FilterField>
         <FilterField label="Status">
-          <select value={filters.status} onChange={(e) => setFilter("status", e.target.value)}>
+          <select
+            value={filters.bidStatus}
+            onChange={(e) => setFilter("bidStatus", e.target.value)}
+          >
             <option value="all">All</option>
             <option value="pending">pending</option>
           </select>
@@ -206,8 +208,8 @@ export function AdminBidsTable({ token }) {
             type="text"
             inputMode="numeric"
             placeholder="e.g. 5"
-            value={filters.jobId}
-            onChange={(e) => setFilter("jobId", e.target.value)}
+            value={filters.bidJobId}
+            onChange={(e) => setFilter("bidJobId", e.target.value)}
           />
         </FilterField>
       </TableFilters>

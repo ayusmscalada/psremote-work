@@ -6,6 +6,8 @@ import TablePagination from "./TablePagination";
 export default function JobSpreadsheet({
   applications,
   showCustomer = false,
+  showRegisteredBy = false,
+  currentWorkerId = null,
   customerAssign = false,
   allowedCustomers = [],
   onCustomerChange,
@@ -17,6 +19,7 @@ export default function JobSpreadsheet({
   resultCount,
   totalCount,
   workerOptions = [],
+  workerFilterLabel = "Registered by",
   pagination,
   onPageChange,
   onPageSizeChange,
@@ -25,6 +28,8 @@ export default function JobSpreadsheet({
   onEdit,
   onScreenshot,
   onDelete,
+  onClaimBid,
+  claimingId = null,
   deletingId,
 }) {
   const showAssignColumn =
@@ -47,6 +52,7 @@ export default function JobSpreadsheet({
           resultCount={resultCount ?? 0}
           totalCount={totalCount ?? 0}
           workerOptions={workerOptions}
+          workerFilterLabel={workerFilterLabel}
         />
       )}
 
@@ -61,6 +67,7 @@ export default function JobSpreadsheet({
               <tr>
                 <th className="sheet-corner" aria-label="Row index" />
                 <th className="col-registered">Registered</th>
+                {showRegisteredBy && <th className="col-registered-by">Registered by</th>}
                 <th className="col-title">Title</th>
                 <th className="col-company">Company</th>
                 {showAssignColumn && (
@@ -79,6 +86,10 @@ export default function JobSpreadsheet({
               {applications.map((app, index) => {
                 const isDeleting = deletingId === app.id;
                 const isAssigning = assigningCustomerId === app.id;
+                const isClaiming = claimingId === app.id;
+                const isOwned =
+                  app.isOwnedByMe ??
+                  (currentWorkerId == null || app.workerId === currentWorkerId);
                 const rowNum =
                   (pagination.page - 1) * pagination.pageSize + index + 1;
 
@@ -90,6 +101,11 @@ export default function JobSpreadsheet({
                   >
                     <td className="row-num">{rowNum}</td>
                     <td className="cell-registered">{formatDateTime(app.createdAt)}</td>
+                    {showRegisteredBy && (
+                      <td className="cell-text" title={app.registeredByUsername}>
+                        {app.registeredByUsername || "—"}
+                      </td>
+                    )}
                     <td className="cell-text" title={app.jobTitle}>
                       {app.jobTitle}
                     </td>
@@ -104,7 +120,7 @@ export default function JobSpreadsheet({
                         <select
                           className="sheet-customer-select"
                           value={String(app.customerId)}
-                          disabled={isDeleting || isAssigning}
+                          disabled={isDeleting || isAssigning || !isOwned}
                           aria-label={`Assign customer for ${app.jobTitle}`}
                           onChange={(e) =>
                             onCustomerChange(app, Number(e.target.value))
@@ -142,11 +158,21 @@ export default function JobSpreadsheet({
                       {app.screenshotLink ? "Yes" : "—"}
                     </td>
                     <td className="action-cell" onClick={(e) => e.stopPropagation()}>
+                      {!isOwned && onClaimBid && (
+                        <button
+                          type="button"
+                          className="sheet-btn sheet-btn-claim"
+                          onClick={() => onClaimBid(app)}
+                          disabled={isDeleting || isAssigning || isClaiming}
+                        >
+                          {isClaiming ? "..." : "Take Bid"}
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="sheet-btn"
                         onClick={() => onEdit(app)}
-                        disabled={isDeleting || isAssigning}
+                        disabled={isDeleting || isAssigning || !isOwned}
                       >
                         Edit
                       </button>
@@ -154,7 +180,7 @@ export default function JobSpreadsheet({
                         type="button"
                         className="sheet-btn sheet-btn-primary"
                         onClick={() => onScreenshot(app)}
-                        disabled={isDeleting || isAssigning}
+                        disabled={isDeleting || isAssigning || !isOwned}
                       >
                         Add Screenshot
                       </button>
@@ -162,7 +188,7 @@ export default function JobSpreadsheet({
                         type="button"
                         className="sheet-btn sheet-btn-danger"
                         onClick={() => onDelete(app)}
-                        disabled={isDeleting || isAssigning}
+                        disabled={isDeleting || isAssigning || !isOwned}
                       >
                         {isDeleting ? "..." : "Delete"}
                       </button>

@@ -47,7 +47,9 @@ export default function JobList({
                   Open job ↗
                 </a>
                 {variant === "customer" && app.workerUsername && (
-                  <span className="job-card-worker">Worker: {app.workerUsername}</span>
+                  <span className="job-card-worker">
+                    Registered by: {app.registeredByUsername || app.workerUsername}
+                  </span>
                 )}
               </div>
             </div>

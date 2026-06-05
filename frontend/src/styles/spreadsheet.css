@@ -85,6 +85,11 @@
   width: 11%;
 }
 
+.spreadsheet .col-registered-by {
+  width: 10%;
+  min-width: 6.5rem;
+}
+
 .spreadsheet .col-title {
   width: 18%;
 }
@@ -156,7 +161,8 @@
 }
 
 .spreadsheet .col-actions {
-  width: 20%;
+  width: 24%;
+  min-width: 16rem;
 }
 
 .spreadsheet td.action-cell {
@@ -275,6 +281,16 @@
 
 .spreadsheet .sheet-btn-danger:hover:not(:disabled) {
   background: #fad2cf;
+}
+
+.spreadsheet .sheet-btn-claim {
+  color: #1d4ed8;
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.spreadsheet .sheet-btn-claim:hover:not(:disabled) {
+  background: #dbeafe;
 }
 
 .spreadsheet-empty {

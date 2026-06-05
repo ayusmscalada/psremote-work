@@ -49,7 +49,7 @@ export default function CustomerApplicationDetailPage() {
           <div>
             <h1 className="app-page-title">{application.jobTitle}</h1>
             <p className="app-page-desc">
-              {application.companyName} · Worker: {application.workerUsername}
+              {application.companyName} · Registered by: {application.workerUsername}
             </p>
           </div>
         </div>
@@ -67,9 +67,15 @@ export default function CustomerApplicationDetailPage() {
               <span>{application.companyName}</span>
             </div>
             <div className="detail-item">
-              <span className="detail-label">Worker</span>
-              <span>{application.workerUsername}</span>
+              <span className="detail-label">Registered by</span>
+              <span>{application.registeredByUsername || application.workerUsername}</span>
             </div>
+            {application.assigneeUsername && (
+              <div className="detail-item">
+                <span className="detail-label">Assigned to</span>
+                <span>{application.assigneeUsername}</span>
+              </div>
+            )}
             <div className="detail-item">
               <span className="detail-label">Bid status</span>
               <span className={`status status-${application.bidStatus}`}>

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../api";
-import { hasActiveFilters } from "../utils/tableUtils";
 import { appendPaginationParams } from "../utils/listQuery";
 import { useServerPagination } from "../hooks/useServerPagination";
+import { useUrlFilterState } from "../hooks/useUrlFilterState";
 import { FilterField, TableFilters } from "./TableFilters";
 import TablePagination from "./TablePagination";
 
@@ -12,11 +12,11 @@ export default function WorkerAllowancePanel({ token, onChange, hideTitle }) {
   const [customers, setCustomers] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [drafts, setDrafts] = useState({});
-  const [filters, setFilters] = useState(allowanceDefaults);
+  const { filters, setFilter, clearFilters, hasActiveFilters } = useUrlFilterState(allowanceDefaults);
   const [savingId, setSavingId] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const pagination = useServerPagination();
+  const pagination = useServerPagination(undefined, { syncToUrl: true });
 
   const visibleCustomers = customers.filter((c) =>
     !filters.customerSearch ||
@@ -64,8 +64,7 @@ export default function WorkerAllowancePanel({ token, onChange, hideTitle }) {
   }, [loadCustomers, loadWorkers]);
 
   function updateFilter(key, value) {
-    setFilters((f) => ({ ...f, [key]: value }));
-    if (key === "workerSearch") pagination.resetPage();
+    setFilter(key, value);
   }
 
   function toggleCustomer(workerId, customerId) {
@@ -126,8 +125,8 @@ export default function WorkerAllowancePanel({ token, onChange, hideTitle }) {
           <TableFilters
             resultCount={pagination.total}
             totalCount={pagination.total}
-            hasActiveFilters={hasActiveFilters(filters, allowanceDefaults)}
-            onClear={() => setFilters(allowanceDefaults)}
+            hasActiveFilters={hasActiveFilters}
+            onClear={clearFilters}
           >
             <FilterField label="Worker" className="filter-field--grow">
               <input

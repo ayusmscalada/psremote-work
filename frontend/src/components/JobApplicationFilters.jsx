@@ -9,6 +9,7 @@ export default function JobApplicationFilters({
   resultCount,
   totalCount,
   workerOptions = [],
+  workerFilterLabel = "Registered by",
 }) {
   return (
     <TableFilters
@@ -49,7 +50,7 @@ export default function JobApplicationFilters({
         </select>
       </FilterField>
       {workerOptions.length > 0 && (
-        <FilterField label="Worker">
+        <FilterField label={workerFilterLabel}>
           <select
             value={filters.worker}
             onChange={(e) => setFilter("worker", e.target.value)}

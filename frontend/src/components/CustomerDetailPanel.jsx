@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../api";
+import { useAuth } from "../context/AuthContext";
 import { useJobApplicationFilterState } from "../hooks/useJobApplicationFilterState";
 import { useServerPagination } from "../hooks/useServerPagination";
 import { buildApplicationsQuery } from "../utils/listQuery";
@@ -15,10 +16,13 @@ export default function CustomerDetailPanel({
   allowedCustomers = [],
   token,
   onRefresh,
+  activeTab = "profile",
+  onTabChange,
 }) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("profile");
+  const { user } = useAuth();
   const [applications, setApplications] = useState([]);
+  const [workerOptions, setWorkerOptions] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [modalMode, setModalMode] = useState(null);
   const [editingApplication, setEditingApplication] = useState(null);
@@ -26,9 +30,13 @@ export default function CustomerDetailPanel({
   const [actionError, setActionError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const [assigningCustomerId, setAssigningCustomerId] = useState(null);
+  const [claimingId, setClaimingId] = useState(null);
 
-  const { filters, setFilter, clearFilters, hasActiveFilters } = useJobApplicationFilterState();
-  const pagination = useServerPagination();
+  const { filters, setFilter, clearFilters, hasActiveFilters } = useJobApplicationFilterState({
+    includeWorker: true,
+    syncToUrl: true,
+  });
+  const pagination = useServerPagination(undefined, { syncToUrl: true });
 
   const loadApplications = useCallback(async () => {
     setJobsLoading(true);
@@ -42,6 +50,9 @@ export default function CustomerDetailPanel({
       const result = await apiFetch(`/worker/customers/${customer.id}${query}`, { token });
       setApplications(result.applications || []);
       pagination.applyResponse(result.pagination);
+      if (result.filterOptions?.workers) {
+        setWorkerOptions(result.filterOptions.workers);
+      }
     } catch (err) {
       setActionError(err.message);
       setApplications([]);
@@ -65,12 +76,10 @@ export default function CustomerDetailPanel({
 
   function handleSetFilter(key, value) {
     setFilter(key, value);
-    pagination.resetPage();
   }
 
   function handleClearFilters() {
     clearFilters();
-    pagination.resetPage();
   }
 
   function openCreateModal() {
@@ -128,6 +137,30 @@ export default function CustomerDetailPanel({
     }
   }
 
+  async function handleClaimBid(application) {
+    if (
+      !window.confirm(
+        `Take bid for "${application.jobTitle}"? You will become the assignee and can edit it.`
+      )
+    ) {
+      return;
+    }
+
+    setActionError("");
+    setClaimingId(application.id);
+    try {
+      await apiFetch(`/worker/applications/${application.id}/claim-bid`, {
+        method: "POST",
+        token,
+      });
+      await handleSaved();
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setClaimingId(null);
+    }
+  }
+
   async function handleDelete(application) {
     if (!window.confirm(`Delete job "${application.jobTitle}"?`)) return;
 
@@ -156,14 +189,14 @@ export default function CustomerDetailPanel({
         <button
           type="button"
           className={`tab${activeTab === "profile" ? " tab-active" : ""}`}
-          onClick={() => setActiveTab("profile")}
+          onClick={() => onTabChange?.("profile")}
         >
           Profile Detail
         </button>
         <button
           type="button"
           className={`tab${activeTab === "jobs" ? " tab-active" : ""}`}
-          onClick={() => setActiveTab("jobs")}
+          onClick={() => onTabChange?.("jobs")}
         >
           Jobs
         </button>
@@ -195,6 +228,8 @@ export default function CustomerDetailPanel({
 
           <JobSpreadsheet
             applications={applications}
+            showRegisteredBy
+            currentWorkerId={user?.id}
             customerAssign={allowedCustomers.length > 1}
             allowedCustomers={allowedCustomers}
             onCustomerChange={handleCustomerChange}
@@ -205,6 +240,7 @@ export default function CustomerDetailPanel({
             hasActiveFilters={hasActiveFilters}
             resultCount={pagination.total}
             totalCount={pagination.total}
+            workerOptions={workerOptions}
             pagination={pagination}
             onPageChange={pagination.setPage}
             onPageSizeChange={pagination.setPageSize}
@@ -213,6 +249,8 @@ export default function CustomerDetailPanel({
             onEdit={openEditModal}
             onScreenshot={openScreenshotModal}
             onDelete={handleDelete}
+            onClaimBid={handleClaimBid}
+            claimingId={claimingId}
             deletingId={deletingId}
           />
         </div>

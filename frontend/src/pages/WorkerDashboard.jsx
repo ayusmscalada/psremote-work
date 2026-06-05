@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { apiFetch } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useDashboardSection } from "../hooks/useDashboardSection";
 import AppShell from "../components/AppShell";
 import CustomerDetailPanel from "../components/CustomerDetailPanel";
 import WorkerJobsPanel from "../components/WorkerJobsPanel";
@@ -29,18 +30,28 @@ const sectionMeta = {
   },
 };
 
+const VALID_SECTIONS = workerNav.map((item) => item.id);
+
 export default function WorkerDashboard() {
   const { token } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState(
-    location.state?.section || "overview"
+  const [searchParams] = useSearchParams();
+  const { section: activeSection, setSection, getParam, setParam } = useDashboardSection(
+    "overview",
+    VALID_SECTIONS
   );
   const [allowedCustomers, setAllowedCustomers] = useState([]);
-  const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [customerDetail, setCustomerDetail] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const selectedCustomerId = (() => {
+    const fromUrl = getParam("customerId");
+    if (fromUrl) return Number(fromUrl);
+    return null;
+  })();
+
+  const customerTab = getParam("tab", "profile") === "jobs" ? "jobs" : "profile";
 
   const loadCustomers = useCallback(async () => {
     const result = await apiFetch("/worker/jobs", { token });
@@ -60,19 +71,18 @@ export default function WorkerDashboard() {
     loadCustomers()
       .then((customers) => {
         const fromNav = location.state?.selectedCustomerId;
-        if (location.state?.section) {
-          setActiveSection(location.state.section);
-        }
-        if (fromNav) {
-          setSelectedCustomerId(fromNav);
-          setActiveSection(location.state?.section || "customers");
-        } else if (customers.length === 1) {
-          setSelectedCustomerId(customers[0].id);
+        if (fromNav && !searchParams.get("customerId")) {
+          setParam("customerId", String(fromNav), "");
+          if (location.state?.section) {
+            setSection(location.state.section);
+          }
+        } else if (!searchParams.get("customerId") && customers.length === 1) {
+          setParam("customerId", String(customers[0].id), "");
         }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [loadCustomers, location.state]);
+  }, [loadCustomers]);
 
   useEffect(() => {
     if (!selectedCustomerId) {
@@ -90,8 +100,15 @@ export default function WorkerDashboard() {
   }
 
   function handleNavigate(section) {
-    setActiveSection(section);
-    navigate("/worker", { replace: true, state: { section } });
+    setSection(section);
+  }
+
+  function handleSelectCustomer(customerId) {
+    setParam("customerId", String(customerId), "");
+  }
+
+  function handleCustomerTabChange(tab) {
+    setParam("tab", tab, "profile");
   }
 
   const meta = sectionMeta[activeSection];
@@ -147,46 +164,48 @@ export default function WorkerDashboard() {
 
     if (activeSection === "customers") {
       return (
-      <>
-        {error && <div className="error-banner">{error}</div>}
-        {allowedCustomers.length === 0 ? (
-          <div className="app-panel">
-            <p className="card-title">No customer access yet</p>
-            <p className="card-meta">Contact your admin to get access to customers.</p>
-          </div>
-        ) : (
-          <>
-            <div className="customer-cards">
-              {allowedCustomers.map((customer) => (
-                <button
-                  key={customer.id}
-                  type="button"
-                  className={`customer-card${
-                    selectedCustomerId === customer.id ? " customer-card-selected" : ""
-                  }`}
-                  onClick={() => setSelectedCustomerId(customer.id)}
-                >
-                  <span className="customer-card-icon">◆</span>
-                  <span className="customer-card-name">{customer.username}</span>
-                  <span className="customer-card-stats">
-                    {customer.applicationCount} application
-                    {customer.applicationCount !== 1 ? "s" : ""}
-                  </span>
-                </button>
-              ))}
+        <>
+          {error && <div className="error-banner">{error}</div>}
+          {allowedCustomers.length === 0 ? (
+            <div className="app-panel">
+              <p className="card-title">No customer access yet</p>
+              <p className="card-meta">Contact your admin to get access to customers.</p>
             </div>
-            {selectedCustomer && customerDetail && (
-              <CustomerDetailPanel
-                customer={selectedCustomer}
-                profile={customerDetail.profile}
-                allowedCustomers={allowedCustomers}
-                token={token}
-                onRefresh={handleRefresh}
-              />
-            )}
-          </>
-        )}
-      </>
+          ) : (
+            <>
+              <div className="customer-cards">
+                {allowedCustomers.map((customer) => (
+                  <button
+                    key={customer.id}
+                    type="button"
+                    className={`customer-card${
+                      selectedCustomerId === customer.id ? " customer-card-selected" : ""
+                    }`}
+                    onClick={() => handleSelectCustomer(customer.id)}
+                  >
+                    <span className="customer-card-icon">◆</span>
+                    <span className="customer-card-name">{customer.username}</span>
+                    <span className="customer-card-stats">
+                      {customer.applicationCount} application
+                      {customer.applicationCount !== 1 ? "s" : ""}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {selectedCustomer && customerDetail && (
+                <CustomerDetailPanel
+                  customer={selectedCustomer}
+                  profile={customerDetail.profile}
+                  allowedCustomers={allowedCustomers}
+                  token={token}
+                  onRefresh={handleRefresh}
+                  activeTab={customerTab}
+                  onTabChange={handleCustomerTabChange}
+                />
+              )}
+            </>
+          )}
+        </>
       );
     }
 

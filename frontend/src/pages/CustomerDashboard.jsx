@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useDashboardSection } from "../hooks/useDashboardSection";
 import AppShell from "../components/AppShell";
 import JobApplicationsTable from "../components/JobApplicationsTable";
 import CustomerSelfProfilePanel from "../components/CustomerSelfProfilePanel";
@@ -29,13 +30,12 @@ const sectionMeta = {
   },
 };
 
+const VALID_SECTIONS = customerNav.map((item) => item.id);
+
 export default function CustomerDashboard() {
   const { token } = useAuth();
-  const location = useLocation();
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState(
-    location.state?.section || "overview"
-  );
+  const { section: activeSection, setSection } = useDashboardSection("overview", VALID_SECTIONS);
   const [overview, setOverview] = useState(null);
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState("");
@@ -51,20 +51,13 @@ export default function CustomerDashboard() {
   }
 
   useEffect(() => {
-    if (location.state?.section) {
-      setActiveSection(location.state.section);
-    }
-  }, [location.state?.section]);
-
-  useEffect(() => {
     loadAll()
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [token]);
 
   function handleNavigate(section) {
-    setActiveSection(section);
-    navigate("/customer", { replace: true, state: { section } });
+    setSection(section);
   }
 
   const meta = sectionMeta[activeSection];
