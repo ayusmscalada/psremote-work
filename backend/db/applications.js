@@ -261,6 +261,17 @@ export async function countCompletedApplicationsForCustomer(customerId) {
   return count || 0;
 }
 
+export async function countIncompleteApplicationsForCustomer(customerId) {
+  const { count, error } = await supabase
+    .from("job_applications")
+    .select("*", { count: "exact", head: true })
+    .eq("customer_id", customerId)
+    .neq("bid_status", "completed");
+
+  if (error) throw new Error(error.message);
+  return count || 0;
+}
+
 /** Backfill job_link_normalized after schema patch (npm run db:patch). Re-runs when normalization rules change. */
 export async function backfillJobLinkNormalized({ force = true } = {}) {
   const { data, error } = await supabase

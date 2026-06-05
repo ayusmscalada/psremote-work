@@ -185,7 +185,12 @@ export default function WorkerDashboard() {
                   >
                     <span className="customer-card-icon">◆</span>
                     <span className="customer-card-name">{customer.username}</span>
-                    <span className="customer-card-stats">
+                    <span
+                      className="customer-card-stats"
+                      title={`${customer.pendingBidCount ?? 0} not completed of ${customer.applicationCount} total`}
+                    >
+                      <span className="customer-card-pending">{customer.pendingBidCount ?? 0}</span>
+                      {" / "}
                       {customer.applicationCount} application
                       {customer.applicationCount !== 1 ? "s" : ""}
                     </span>

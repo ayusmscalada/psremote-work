@@ -90,6 +90,11 @@
   color: var(--text-muted);
 }
 
+.customer-card-pending {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .customer-empty {
   margin-bottom: 2rem;
 }

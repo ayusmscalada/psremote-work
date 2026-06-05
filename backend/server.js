@@ -24,6 +24,7 @@ import { buildPaginationMeta, parsePaginationQuery } from "./pagination.js";
 import {
   countApplicationsForCustomer,
   countCompletedApplicationsForCustomer,
+  countIncompleteApplicationsForCustomer,
   createApplication,
   deleteApplication,
   claimApplicationBid,
@@ -546,10 +547,13 @@ app.get(
     );
 
     const allowedCustomers = await Promise.all(
-      customers.map(async (customer) => ({
-        ...customer,
-        applicationCount: await countApplicationsForCustomer(customer.id),
-      }))
+      customers.map(async (customer) => {
+        const [applicationCount, pendingBidCount] = await Promise.all([
+          countApplicationsForCustomer(customer.id),
+          countIncompleteApplicationsForCustomer(customer.id),
+        ]);
+        return { ...customer, applicationCount, pendingBidCount };
+      })
     );
 
     res.json({ allowedCustomers });
