@@ -141,13 +141,18 @@ async function formatApplicationForWorkerView(app, { customerMap, currentWorkerI
   ]);
   const registrarName = registrar?.username || `Worker #${registrarId}`;
   const assigneeName = assignee?.username || `Worker #${app.workerId}`;
+  const isOwnedByMe = currentWorkerId != null && app.workerId === currentWorkerId;
+  const assigneeBidStatus = app.bidStatus;
   return formatApplication({
     ...app,
     workerUsername: assigneeName,
     registeredByUsername: registrarName,
     assigneeUsername: assigneeName,
+    assigneeBidStatus,
     customerUsername: customer?.username || `Customer #${app.customerId}`,
-    isOwnedByMe: currentWorkerId != null && app.workerId === currentWorkerId,
+    isOwnedByMe,
+    canClaimBid:
+      currentWorkerId != null && !isOwnedByMe && assigneeBidStatus === "not_yet",
   });
 }
 
@@ -729,6 +734,9 @@ app.post(
         return res.status(404).json({ error: err.message });
       }
       if (err.message === "You already own this job") {
+        return res.status(400).json({ error: err.message });
+      }
+      if (err.message === "Take Bid is only available when bid status is Not Yet") {
         return res.status(400).json({ error: err.message });
       }
       throw err;

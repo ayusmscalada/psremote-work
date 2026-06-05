@@ -25,7 +25,21 @@
 
 .job-detail-actions {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.job-bid-completed-other {
+  font-size: 0.9rem;
+  color: #34a853;
+  font-weight: 500;
+}
+
+.job-bid-locked {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 .job-detail-card {

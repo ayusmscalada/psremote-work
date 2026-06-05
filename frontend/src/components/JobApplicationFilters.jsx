@@ -10,6 +10,7 @@ export default function JobApplicationFilters({
   totalCount,
   workerOptions = [],
   workerFilterLabel = "Registered by",
+  bidStatusFilterLabel = "Assignee bid status",
 }) {
   return (
     <TableFilters
@@ -26,7 +27,7 @@ export default function JobApplicationFilters({
           onChange={(e) => setFilter("search", e.target.value)}
         />
       </FilterField>
-      <FilterField label="Bid status">
+      <FilterField label={bidStatusFilterLabel}>
         <select
           value={filters.bidStatus}
           onChange={(e) => setFilter("bidStatus", e.target.value)}

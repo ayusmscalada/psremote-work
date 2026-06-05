@@ -161,8 +161,8 @@
 }
 
 .spreadsheet .col-actions {
-  width: 24%;
-  min-width: 16rem;
+  width: 26%;
+  min-width: 17rem;
 }
 
 .spreadsheet td.action-cell {
@@ -291,6 +291,24 @@
 
 .spreadsheet .sheet-btn-claim:hover:not(:disabled) {
   background: #dbeafe;
+}
+
+.spreadsheet .sheet-bid-completed-other {
+  display: inline-block;
+  max-width: 7.5rem;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: #137333;
+  font-weight: 500;
+}
+
+.spreadsheet .sheet-bid-locked {
+  display: inline-block;
+  max-width: 8rem;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: #5f6368;
+  font-weight: 500;
 }
 
 .spreadsheet-empty {

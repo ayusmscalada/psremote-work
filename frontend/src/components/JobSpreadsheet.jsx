@@ -1,4 +1,4 @@
-import { bidStatusLabel } from "../constants";
+import { assigneeBidStatusValue, formatAssigneeBidStatus } from "../constants";
 import { formatDateTime } from "../utils/tableUtils";
 import JobApplicationFilters from "./JobApplicationFilters";
 import TablePagination from "./TablePagination";
@@ -77,7 +77,7 @@ export default function JobSpreadsheet({
                   <th className="col-customer">Customer</th>
                 )}
                 <th className="col-link">Job Link</th>
-                <th className="col-status">Bid Status</th>
+                <th className="col-status">Assignee bid status</th>
                 <th className="col-screenshot">Screenshot</th>
                 <th className="col-actions">Actions</th>
               </tr>
@@ -90,6 +90,14 @@ export default function JobSpreadsheet({
                 const isOwned =
                   app.isOwnedByMe ??
                   (currentWorkerId == null || app.workerId === currentWorkerId);
+                const assigneeBidStatus = assigneeBidStatusValue(app);
+                const canClaim =
+                  app.canClaimBid ??
+                  (!isOwned && assigneeBidStatus === "not_yet");
+                const completedByOther =
+                  !isOwned && assigneeBidStatus === "completed";
+                const bidLockedByAssignee =
+                  !isOwned && !canClaim && !completedByOther;
                 const rowNum =
                   (pagination.page - 1) * pagination.pageSize + index + 1;
 
@@ -149,16 +157,42 @@ export default function JobSpreadsheet({
                         Open link
                       </a>
                     </td>
-                    <td>
-                      <span className={`sheet-status sheet-status-${app.bidStatus}`}>
-                        {bidStatusLabel(app.bidStatus)}
+                    <td
+                      className="cell-text"
+                      title={
+                        isOwned
+                          ? "Your bid status on this job"
+                          : `${app.assigneeUsername || "Assignee"}'s bid status on this job`
+                      }
+                    >
+                      <span
+                        className={`sheet-status sheet-status-${assigneeBidStatus}`}
+                      >
+                        {formatAssigneeBidStatus(app, { isOwned })}
                       </span>
                     </td>
                     <td className={app.screenshotLink ? "sheet-yes" : "sheet-no"}>
                       {app.screenshotLink ? "Yes" : "—"}
                     </td>
                     <td className="action-cell" onClick={(e) => e.stopPropagation()}>
-                      {!isOwned && onClaimBid && (
+                      {completedByOther && (
+                        <span
+                          className="sheet-bid-completed-other"
+                          title={`${app.assigneeUsername || app.workerUsername || "Assignee"} completed this bid`}
+                        >
+                          {app.assigneeUsername || app.workerUsername || "Assignee"}{" "}
+                          completed bid
+                        </span>
+                      )}
+                      {bidLockedByAssignee && (
+                        <span
+                          className="sheet-bid-locked"
+                          title="Take Bid is only available when the assignee's bid status is Not Yet"
+                        >
+                          {formatAssigneeBidStatus(app)}
+                        </span>
+                      )}
+                      {!isOwned && canClaim && onClaimBid && (
                         <button
                           type="button"
                           className="sheet-btn sheet-btn-claim"

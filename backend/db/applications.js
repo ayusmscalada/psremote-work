@@ -80,6 +80,9 @@ export async function claimApplicationBid(applicationId, workerId) {
   if (application.workerId === workerId) {
     throw new Error("You already own this job");
   }
+  if (application.bidStatus !== "not_yet") {
+    throw new Error("Take Bid is only available when bid status is Not Yet");
+  }
 
   const { data, error } = await supabase
     .from("job_applications")

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { apiFetch } from "../api";
 import { useAuth } from "../context/AuthContext";
-import { bidStatusLabel } from "../constants";
+import { assigneeBidStatusValue, formatAssigneeBidStatus } from "../constants";
 import { formatDateTime } from "../utils/tableUtils";
 import AppShell from "../components/AppShell";
 import JobModal from "../components/JobModal";
@@ -97,6 +97,12 @@ export default function WorkerJobDetailPage() {
     const isOwned =
       application.isOwnedByMe ??
       (user?.id == null || application.workerId === user?.id);
+    const assigneeBidStatus = assigneeBidStatusValue(application);
+    const canClaim =
+      application.canClaimBid ??
+      (!isOwned && assigneeBidStatus === "not_yet");
+    const completedByOther = !isOwned && assigneeBidStatus === "completed";
+    const bidLockedByAssignee = !isOwned && !canClaim && !completedByOther;
 
     return (
       <>
@@ -113,7 +119,18 @@ export default function WorkerJobDetailPage() {
             <p className="app-page-desc">{application.companyName}</p>
           </div>
           <div className="job-detail-actions">
-            {!isOwned && (
+            {completedByOther && (
+              <span className="job-bid-completed-other">
+                {application.assigneeUsername || application.workerUsername || "Assignee"}{" "}
+                already completed this bid
+              </span>
+            )}
+            {bidLockedByAssignee && (
+              <span className="job-bid-locked">
+                Assignee bid: {formatAssigneeBidStatus(application)}
+              </span>
+            )}
+            {!isOwned && canClaim && (
               <button
                 type="button"
                 className="btn-action btn-primary-sm"
@@ -160,9 +177,11 @@ export default function WorkerJobDetailPage() {
               <span>{application.companyName}</span>
             </div>
             <div className="detail-item">
-              <span className="detail-label">Bid status</span>
-              <span className={`status status-${application.bidStatus}`}>
-                {bidStatusLabel(application.bidStatus)}
+              <span className="detail-label">
+                {isOwned ? "Your bid status" : "Assignee bid status"}
+              </span>
+              <span className={`status status-${assigneeBidStatus}`}>
+                {formatAssigneeBidStatus(application, { isOwned })}
               </span>
             </div>
             <div className="detail-item">
