@@ -40,6 +40,7 @@ export function mapApplication(row) {
   return {
     id: Number(row.id),
     workerId: Number(row.worker_id),
+    registeredByWorkerId: Number(row.registered_by_worker_id ?? row.worker_id),
     customerId: Number(row.customer_id),
     jobLink: row.job_link,
     jobTitle: row.job_title,
@@ -61,5 +62,6 @@ export function toApplicationRow(data) {
   if (data.screenshotLink !== undefined) row.screenshot_link = data.screenshotLink;
   if (data.jobLinkNormalized !== undefined) row.job_link_normalized = data.jobLinkNormalized;
   if (data.customerId !== undefined) row.customer_id = data.customerId;
+  if (data.workerId !== undefined) row.worker_id = data.workerId;
   return row;
 }

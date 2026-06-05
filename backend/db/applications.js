@@ -1,5 +1,6 @@
 import { DUPLICATE_JOB_LINK_ERROR, normalizeJobLink } from "../jobLink.js";
 import { supabase } from "../supabase/client.js";
+import { workerCanAccessCustomer } from "./allowances.js";
 import { mapApplication, toApplicationRow } from "./mappers.js";
 
 export async function getWorkerApplications(workerId, customerId) {
@@ -53,10 +54,42 @@ export async function findApplicationById(id) {
   return mapApplication(data);
 }
 
-export async function findWorkerApplication(workerId, applicationId) {
+export async function findApplicationAccessibleToWorker(workerId, applicationId) {
   const application = await findApplicationById(applicationId);
+  if (!application) return null;
+  if (!(await workerCanAccessCustomer(workerId, application.customerId))) return null;
+  return application;
+}
+
+export async function findOwnedApplication(workerId, applicationId) {
+  const application = await findApplicationAccessibleToWorker(workerId, applicationId);
   if (!application || application.workerId !== workerId) return null;
   return application;
+}
+
+/** @deprecated Use findOwnedApplication for mutations or findApplicationAccessibleToWorker for read access. */
+export async function findWorkerApplication(workerId, applicationId) {
+  return findOwnedApplication(workerId, applicationId);
+}
+
+export async function claimApplicationBid(applicationId, workerId) {
+  const application = await findApplicationAccessibleToWorker(workerId, applicationId);
+  if (!application) {
+    throw new Error("Job application not found");
+  }
+  if (application.workerId === workerId) {
+    throw new Error("You already own this job");
+  }
+
+  const { data, error } = await supabase
+    .from("job_applications")
+    .update({ worker_id: workerId })
+    .eq("id", applicationId)
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return mapApplication(data);
 }
 
 export async function findCustomerApplicationByNormalizedJobLink(
@@ -124,6 +157,7 @@ export async function createApplication({ workerId, customerId, ...fields }) {
     .from("job_applications")
     .insert({
       worker_id: workerId,
+      registered_by_worker_id: workerId,
       customer_id: customerId,
       ...toApplicationRow(fields),
     })
@@ -148,7 +182,7 @@ function isDuplicateJobLinkError(error) {
 }
 
 export async function reassignApplicationCustomer(applicationId, workerId, newCustomerId) {
-  const application = await findWorkerApplication(workerId, applicationId);
+  const application = await findOwnedApplication(workerId, applicationId);
   if (!application) {
     throw new Error("Job application not found");
   }

@@ -42,8 +42,12 @@ function applyApplicationFilters(query, filters) {
     }
   }
 
-  if (filters.workerId != null) {
-    query = query.eq("worker_id", filters.workerId);
+  if (filters.assigneeWorkerId != null) {
+    query = query.eq("worker_id", filters.assigneeWorkerId);
+  }
+
+  if (filters.registeredByWorkerId != null) {
+    query = query.eq("registered_by_worker_id", filters.registeredByWorkerId);
   }
 
   return query;
@@ -79,7 +83,15 @@ export async function listApplications({
     if (!workerUser) {
       return { items: [], total: 0 };
     }
-    resolvedFilters.workerId = workerUser.id;
+    resolvedFilters.registeredByWorkerId = workerUser.id;
+  }
+
+  if (filters?.assignee && filters.assignee !== "all") {
+    const assigneeUser = await findUserByUsername(filters.assignee);
+    if (!assigneeUser) {
+      return { items: [], total: 0 };
+    }
+    resolvedFilters.assigneeWorkerId = assigneeUser.id;
   }
 
   query = applyApplicationFilters(query, resolvedFilters);
@@ -94,15 +106,53 @@ export async function listApplications({
   };
 }
 
+export async function getDistinctWorkerUsernamesForCustomers(customerIds) {
+  if (!customerIds?.length) return [];
+
+  const { data, error } = await supabase
+    .from("job_applications")
+    .select("registered_by_worker_id, worker_id")
+    .in("customer_id", customerIds);
+
+  if (error) throw new Error(error.message);
+
+  const workerIds = [
+    ...new Set(
+      (data || []).flatMap((row) => [
+        row.registered_by_worker_id ?? row.worker_id,
+        row.worker_id,
+      ])
+    ),
+  ];
+  if (workerIds.length === 0) return [];
+
+  const { data: workers, error: workersError } = await supabase
+    .from("users")
+    .select("username")
+    .in("id", workerIds)
+    .eq("role", "worker");
+
+  if (workersError) throw new Error(workersError.message);
+
+  return (workers || []).map((w) => w.username).sort((a, b) => a.localeCompare(b));
+}
+
 export async function getDistinctWorkerUsernamesForCustomer(customerId) {
   const { data, error } = await supabase
     .from("job_applications")
-    .select("worker_id")
+    .select("registered_by_worker_id, worker_id")
     .eq("customer_id", customerId);
 
   if (error) throw new Error(error.message);
 
-  const workerIds = [...new Set((data || []).map((row) => row.worker_id))];
+  const workerIds = [
+    ...new Set(
+      (data || []).flatMap((row) => [
+        row.registered_by_worker_id ?? row.worker_id,
+        row.worker_id,
+      ])
+    ),
+  ];
   if (workerIds.length === 0) return [];
 
   const { data: workers, error: workersError } = await supabase

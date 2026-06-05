@@ -2,6 +2,11 @@
 
 ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS screenshot_link TEXT;
 ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS job_link_normalized TEXT;
+ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS registered_by_worker_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
+
+UPDATE job_applications
+SET registered_by_worker_id = worker_id
+WHERE registered_by_worker_id IS NULL;
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS tech_stack TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;

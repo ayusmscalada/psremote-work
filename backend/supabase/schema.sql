@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS bids (
 CREATE TABLE IF NOT EXISTS job_applications (
   id BIGSERIAL PRIMARY KEY,
   worker_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  registered_by_worker_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
   customer_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   job_link TEXT NOT NULL,
   job_link_normalized TEXT,
@@ -78,6 +79,7 @@ CREATE TABLE IF NOT EXISTS job_applications (
 -- Migrate existing databases
 ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS screenshot_link TEXT;
 ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS job_link_normalized TEXT;
+ALTER TABLE job_applications ADD COLUMN IF NOT EXISTS registered_by_worker_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_job_applications_customer_normalized_link
   ON job_applications (customer_id, job_link_normalized);

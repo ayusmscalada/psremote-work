@@ -17,6 +17,7 @@ import {
 import { parseApplicationFiltersQuery } from "./applicationFilters.js";
 import {
   getDistinctWorkerUsernamesForCustomer,
+  getDistinctWorkerUsernamesForCustomers,
   listApplications,
 } from "./db/applicationList.js";
 import { buildPaginationMeta, parsePaginationQuery } from "./pagination.js";
@@ -25,9 +26,10 @@ import {
   countCompletedApplicationsForCustomer,
   createApplication,
   deleteApplication,
+  claimApplicationBid,
+  findApplicationAccessibleToWorker,
   findApplicationById,
-  findWorkerApplication,
-  getWorkerApplications,
+  findOwnedApplication,
   reassignApplicationCustomer,
   updateApplication,
 } from "./db/applications.js";
@@ -114,10 +116,37 @@ function validateCredentials(username, password, requirePassword = true) {
 }
 
 async function formatApplicationWithWorker(app) {
-  const worker = await findUserById(app.workerId);
+  const registrarId = app.registeredByWorkerId ?? app.workerId;
+  const [registrar, assignee] = await Promise.all([
+    findUserById(registrarId),
+    findUserById(app.workerId),
+  ]);
+  const registrarName = registrar?.username || `Worker #${registrarId}`;
+  const assigneeName = assignee?.username || `Worker #${app.workerId}`;
   return formatApplication({
     ...app,
-    workerUsername: worker?.username || `Worker #${app.workerId}`,
+    workerUsername: registrarName,
+    registeredByUsername: registrarName,
+    assigneeUsername: assigneeName !== registrarName ? assigneeName : null,
+  });
+}
+
+async function formatApplicationForWorkerView(app, { customerMap, currentWorkerId } = {}) {
+  const registrarId = app.registeredByWorkerId ?? app.workerId;
+  const [assignee, registrar, customer] = await Promise.all([
+    findUserById(app.workerId),
+    findUserById(registrarId),
+    customerMap?.get(app.customerId) ?? findUserById(app.customerId),
+  ]);
+  const registrarName = registrar?.username || `Worker #${registrarId}`;
+  const assigneeName = assignee?.username || `Worker #${app.workerId}`;
+  return formatApplication({
+    ...app,
+    workerUsername: assigneeName,
+    registeredByUsername: registrarName,
+    assigneeUsername: assigneeName,
+    customerUsername: customer?.username || `Customer #${app.customerId}`,
+    isOwnedByMe: currentWorkerId != null && app.workerId === currentWorkerId,
   });
 }
 
@@ -517,10 +546,10 @@ app.get(
     );
 
     const allowedCustomers = await Promise.all(
-      customers.map(async (customer) => {
-        const applications = await getWorkerApplications(workerId, customer.id);
-        return { ...customer, applicationCount: applications.length };
-      })
+      customers.map(async (customer) => ({
+        ...customer,
+        applicationCount: await countApplicationsForCustomer(customer.id),
+      }))
     );
 
     res.json({ allowedCustomers });
@@ -544,27 +573,29 @@ app.get(
       return res.status(404).json({ error: "Customer not found" });
     }
 
-    const workerScopedCount = (
-      await getWorkerApplications(workerId, customerId)
-    ).length;
-
+    const applicationCount = await countApplicationsForCustomer(customerId);
     const { page, pageSize, from, to } = parsePaginationQuery(req.query);
     const filters = parseApplicationFiltersQuery(req.query);
 
     const { items, total } = await listApplications({
-      workerId,
       customerId,
       filters,
       from,
       to,
     });
 
+    const workerUsernames = await getDistinctWorkerUsernamesForCustomer(customerId);
+    const formatted = await Promise.all(
+      items.map((app) =>
+        formatApplicationForWorkerView(app, { currentWorkerId: workerId })
+      )
+    );
+
     res.json({
-      profile: buildCustomerProfileResponse(customer, {
-        applicationCount: workerScopedCount,
-      }),
-      applications: items.map(formatApplication),
+      profile: buildCustomerProfileResponse(customer, { applicationCount }),
+      applications: formatted,
       pagination: buildPaginationMeta(total, page, pageSize),
+      filterOptions: { workers: workerUsernames },
     });
   })
 );
@@ -630,20 +661,23 @@ app.get(
     const filters = parseApplicationFiltersQuery(req.query);
 
     const { items, total } = await listApplications({
-      workerId,
       customerIds: filterCustomerIds,
       filters,
       from,
       to,
     });
 
+    const workerUsernames = await getDistinctWorkerUsernamesForCustomers(filterCustomerIds);
     const formatted = await Promise.all(
-      items.map((app) => formatApplicationWithCustomer(app, customerMap))
+      items.map((app) =>
+        formatApplicationForWorkerView(app, { customerMap, currentWorkerId: workerId })
+      )
     );
 
     res.json({
       applications: formatted,
       pagination: buildPaginationMeta(total, page, pageSize),
+      filterOptions: { workers: workerUsernames },
     });
   })
 );
@@ -653,11 +687,48 @@ app.get(
   authMiddleware,
   requireRole("worker"),
   asyncHandler(async (req, res) => {
-    const application = await findWorkerApplication(req.user.id, req.params.id);
+    const application = await findApplicationAccessibleToWorker(
+      req.user.id,
+      req.params.id
+    );
     if (!application) {
       return res.status(404).json({ error: "Job application not found" });
     }
-    res.json({ application: formatApplication(application) });
+    const customer = await findUserById(application.customerId);
+    const customerMap = new Map([[application.customerId, customer]]);
+    res.json({
+      application: await formatApplicationForWorkerView(application, {
+        customerMap,
+        currentWorkerId: req.user.id,
+      }),
+    });
+  })
+);
+
+app.post(
+  "/api/worker/applications/:id/claim-bid",
+  authMiddleware,
+  requireRole("worker"),
+  asyncHandler(async (req, res) => {
+    try {
+      const updated = await claimApplicationBid(req.params.id, req.user.id);
+      const customer = await findUserById(updated.customerId);
+      const customerMap = new Map([[updated.customerId, customer]]);
+      res.json({
+        application: await formatApplicationForWorkerView(updated, {
+          customerMap,
+          currentWorkerId: req.user.id,
+        }),
+      });
+    } catch (err) {
+      if (err.message === "Job application not found") {
+        return res.status(404).json({ error: err.message });
+      }
+      if (err.message === "You already own this job") {
+        return res.status(400).json({ error: err.message });
+      }
+      throw err;
+    }
   })
 );
 
@@ -667,7 +738,7 @@ app.put(
   requireRole("worker"),
   screenshotUpload.single("screenshot"),
   asyncHandler(async (req, res) => {
-    const application = await findWorkerApplication(req.user.id, req.params.id);
+    const application = await findOwnedApplication(req.user.id, req.params.id);
     if (!application) {
       return res.status(404).json({ error: "Job application not found" });
     }
@@ -694,7 +765,7 @@ app.put(
   authMiddleware,
   requireRole("worker"),
   asyncHandler(async (req, res) => {
-    const application = await findWorkerApplication(req.user.id, req.params.id);
+    const application = await findOwnedApplication(req.user.id, req.params.id);
     if (!application) {
       return res.status(404).json({ error: "Job application not found" });
     }
@@ -753,7 +824,7 @@ app.delete(
   authMiddleware,
   requireRole("worker"),
   asyncHandler(async (req, res) => {
-    const application = await findWorkerApplication(req.user.id, req.params.id);
+    const application = await findOwnedApplication(req.user.id, req.params.id);
     if (!application) {
       return res.status(404).json({ error: "Job application not found" });
     }
