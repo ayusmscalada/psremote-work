@@ -7,6 +7,7 @@ export function mapUser(row) {
     username: row.username,
     password: row.password,
     role: row.role,
+    canAutoMatchUpload: Boolean(row.can_auto_match_upload),
     ...mapCustomerProfileFromRow(row),
   };
 }

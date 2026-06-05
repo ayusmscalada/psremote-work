@@ -12,6 +12,7 @@ export default function WorkerAllowancePanel({ token, onChange, hideTitle }) {
   const [customers, setCustomers] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [drafts, setDrafts] = useState({});
+  const [autoMatchDrafts, setAutoMatchDrafts] = useState({});
   const { filters, setFilter, clearFilters, hasActiveFilters } = useUrlFilterState(allowanceDefaults);
   const [savingId, setSavingId] = useState(null);
   const [error, setError] = useState("");
@@ -47,10 +48,13 @@ export default function WorkerAllowancePanel({ token, onChange, hideTitle }) {
       pagination.applyResponse(result.pagination);
 
       const next = {};
+      const nextAutoMatch = {};
       for (const worker of list) {
         next[worker.id] = [...(worker.allowedCustomerIds || [])];
+        nextAutoMatch[worker.id] = Boolean(worker.canAutoMatchUpload);
       }
       setDrafts(next);
+      setAutoMatchDrafts(nextAutoMatch);
     } catch (err) {
       setError(err.message);
       setWorkers([]);
@@ -80,11 +84,19 @@ export default function WorkerAllowancePanel({ token, onChange, hideTitle }) {
     });
   }
 
+  function toggleAutoMatch(workerId) {
+    setAutoMatchDrafts((prev) => ({
+      ...prev,
+      [workerId]: !prev[workerId],
+    }));
+  }
+
   function hasChanges(worker) {
     const draft = drafts[worker.id] || [];
     const original = worker.allowedCustomerIds || [];
     if (draft.length !== original.length) return true;
-    return draft.some((id) => !original.includes(id));
+    if (draft.some((id) => !original.includes(id))) return true;
+    return Boolean(autoMatchDrafts[worker.id]) !== Boolean(worker.canAutoMatchUpload);
   }
 
   async function saveAllowances(worker) {
@@ -94,7 +106,10 @@ export default function WorkerAllowancePanel({ token, onChange, hideTitle }) {
       await apiFetch(`/admin/workers/${worker.id}/allowances`, {
         method: "PUT",
         token,
-        body: JSON.stringify({ customerIds: drafts[worker.id] || [] }),
+        body: JSON.stringify({
+          customerIds: drafts[worker.id] || [],
+          canAutoMatchUpload: Boolean(autoMatchDrafts[worker.id]),
+        }),
       });
       if (onChange) await onChange();
       await loadWorkers();
@@ -113,8 +128,9 @@ export default function WorkerAllowancePanel({ token, onChange, hideTitle }) {
     <section className="allowance-panel">
       {!hideTitle && <h2 className="section-title">Worker Customer Access</h2>}
       <p className="allowance-help">
-        Choose which customers each worker can access. Workers only see jobs from allowed
-        customers.
+        Choose which customers each worker can access. Enable <strong>Auto-match upload</strong>{" "}
+        for workers who may upload jobs and have OpenAI allocate them to matching customer
+        profiles automatically.
       </p>
       {error && <div className="error-banner">{error}</div>}
 
@@ -156,6 +172,7 @@ export default function WorkerAllowancePanel({ token, onChange, hideTitle }) {
                 <thead>
                   <tr>
                     <th>Worker</th>
+                    <th>Auto-match</th>
                     {visibleCustomers.map((customer) => (
                       <th key={customer.id}>{customer.username}</th>
                     ))}
@@ -166,6 +183,15 @@ export default function WorkerAllowancePanel({ token, onChange, hideTitle }) {
                   {workers.map((worker) => (
                     <tr key={worker.id}>
                       <td className="worker-name">{worker.username}</td>
+                      <td className="checkbox-cell">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(autoMatchDrafts[worker.id])}
+                          onChange={() => toggleAutoMatch(worker.id)}
+                          aria-label={`${worker.username} auto-match upload`}
+                          title="Allow OpenAI profile matching and auto-allocation"
+                        />
+                      </td>
                       {visibleCustomers.map((customer) => (
                         <td key={customer.id} className="checkbox-cell">
                           <input

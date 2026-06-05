@@ -7,12 +7,18 @@ import { useServerPagination } from "../hooks/useServerPagination";
 import { buildApplicationsQuery } from "../utils/listQuery";
 import { setQueryParam, updateSearchParams } from "../utils/urlQuery";
 import JobSpreadsheet from "./JobSpreadsheet";
+import AutoMatchJobModal from "./AutoMatchJobModal";
 import JobModal from "./JobModal";
 import ScreenshotModal from "./ScreenshotModal";
 
 const ALL_CUSTOMERS = "all";
 
-export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCounts }) {
+export default function WorkerJobsPanel({
+  allowedCustomers,
+  canAutoMatchUpload = false,
+  token,
+  onRefreshCounts,
+}) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
@@ -224,9 +230,24 @@ export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCoun
         >
           Add New Job
         </button>
+        {canAutoMatchUpload && (
+          <button
+            type="button"
+            className="btn-action btn-primary-sm"
+            onClick={() => setModalMode("auto-match")}
+          >
+            Upload &amp; Auto-match
+          </button>
+        )}
       </div>
 
       <p className="card-meta worker-jobs-hint">
+        {canAutoMatchUpload && (
+          <>
+            Use <strong>Upload &amp; Auto-match</strong> to let OpenAI match a job to allowed
+            customer profiles and create jobs automatically.{" "}
+          </>
+        )}
         All jobs for your customers are listed here, including those registered by other workers.
         Use <strong>Take Bid</strong> to claim someone else&apos;s job. Use{" "}
         <strong>Customer (assign)</strong> to move your own jobs to another customer.{" "}
@@ -268,6 +289,14 @@ export default function WorkerJobsPanel({ allowedCustomers, token, onRefreshCoun
         claimingId={claimingId}
         deletingId={deletingId}
       />
+
+      {modalMode === "auto-match" && (
+        <AutoMatchJobModal
+          token={token}
+          onClose={closeModal}
+          onSaved={handleSaved}
+        />
+      )}
 
       {modalMode === "form" && selectedCustomer && (
         <JobModal

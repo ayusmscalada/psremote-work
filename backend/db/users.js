@@ -110,6 +110,10 @@ export async function updateUser(id, { username, password, ...rest }) {
   const profileUpdates = customerProfileToRow(pickCustomerProfile(rest));
   Object.assign(updates, profileUpdates);
 
+  if (rest.canAutoMatchUpload !== undefined) {
+    updates.can_auto_match_upload = Boolean(rest.canAutoMatchUpload);
+  }
+
   const { data, error } = await supabase
     .from("users")
     .update(updates)

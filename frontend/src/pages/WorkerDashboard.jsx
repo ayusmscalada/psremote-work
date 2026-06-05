@@ -41,6 +41,7 @@ export default function WorkerDashboard() {
     VALID_SECTIONS
   );
   const [allowedCustomers, setAllowedCustomers] = useState([]);
+  const [canAutoMatchUpload, setCanAutoMatchUpload] = useState(false);
   const [customerDetail, setCustomerDetail] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -56,6 +57,7 @@ export default function WorkerDashboard() {
   const loadCustomers = useCallback(async () => {
     const result = await apiFetch("/worker/jobs", { token });
     setAllowedCustomers(result.allowedCustomers || []);
+    setCanAutoMatchUpload(Boolean(result.canAutoMatchUpload));
     return result.allowedCustomers || [];
   }, [token]);
 
@@ -130,6 +132,7 @@ export default function WorkerDashboard() {
           {error && <div className="error-banner">{error}</div>}
           <WorkerJobsPanel
             allowedCustomers={allowedCustomers}
+            canAutoMatchUpload={canAutoMatchUpload}
             token={token}
             onRefreshCounts={loadCustomers}
           />

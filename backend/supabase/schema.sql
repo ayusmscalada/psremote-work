@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
   salary_range TEXT,
   citizenship TEXT,
   nationality TEXT,
+  can_auto_match_upload BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -36,6 +37,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS hourly_rate_range TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS salary_range TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS citizenship TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS nationality TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS can_auto_match_upload BOOLEAN NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS worker_allowances (
   worker_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

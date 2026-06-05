@@ -20,6 +20,7 @@ import {
   getDistinctWorkerUsernamesForCustomers,
   listApplications,
 } from "./db/applicationList.js";
+import { autoAllocateJobToCustomers } from "./matching/autoAllocate.js";
 import { buildPaginationMeta, parsePaginationQuery } from "./pagination.js";
 import {
   countApplicationsForCustomer,
@@ -257,6 +258,9 @@ function createRoleRoutes(role) {
         username: req.body.username,
         password: req.body.password,
         ...(role === "customer" ? req.body : {}),
+        ...(role === "worker" && req.body.canAutoMatchUpload !== undefined
+          ? { canAutoMatchUpload: req.body.canAutoMatchUpload }
+          : {}),
       });
       res.json({ user: updated });
     })
@@ -304,7 +308,18 @@ app.put(
     }
 
     await setWorkerAllowances(worker.id, normalizedIds);
-    res.json({ allowedCustomerIds: await getCustomerIdsForWorker(worker.id) });
+
+    if (req.body.canAutoMatchUpload !== undefined) {
+      await updateUser(worker.id, {
+        canAutoMatchUpload: Boolean(req.body.canAutoMatchUpload),
+      });
+    }
+
+    const updatedWorker = await findUserById(worker.id);
+    res.json({
+      allowedCustomerIds: await getCustomerIdsForWorker(worker.id),
+      canAutoMatchUpload: updatedWorker?.canAutoMatchUpload ?? false,
+    });
   })
 );
 
@@ -551,6 +566,7 @@ app.get(
       allowedCustomerIds.includes(c.id)
     );
 
+    const worker = await findUserById(workerId);
     const allowedCustomers = await Promise.all(
       customers.map(async (customer) => {
         const [applicationCount, pendingBidCount] = await Promise.all([
@@ -561,7 +577,10 @@ app.get(
       })
     );
 
-    res.json({ allowedCustomers });
+    res.json({
+      allowedCustomers,
+      canAutoMatchUpload: worker?.canAutoMatchUpload ?? false,
+    });
   })
 );
 
@@ -636,6 +655,73 @@ app.post(
     });
 
     res.status(201).json({ application: formatApplication(application) });
+  })
+);
+
+app.post(
+  "/api/worker/applications/auto-match",
+  authMiddleware,
+  requireRole("worker"),
+  asyncHandler(async (req, res) => {
+    const workerId = req.user.id;
+    const allowedCustomerIds = await getCustomerIdsForWorker(workerId);
+
+    const parsed = buildApplicationData(req.body);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+
+    if (parsed.data.bidStatus !== "not_yet") {
+      return res.status(400).json({
+        error: "Auto-match uploads must start with bid status Not Yet",
+      });
+    }
+
+    try {
+      const result = await autoAllocateJobToCustomers({
+        workerId,
+        jobData: parsed.data,
+        allowedCustomerIds,
+      });
+
+      const customers = (await getUsersByRole("customer")).filter((c) =>
+        allowedCustomerIds.includes(c.id)
+      );
+      const customerMap = new Map(customers.map((c) => [c.id, c]));
+
+      const created = await Promise.all(
+        result.created.map(async (item) => ({
+          customerUsername: item.customerUsername,
+          matchScore: item.matchScore,
+          matchRationale: item.matchRationale,
+          application: await formatApplicationForWorkerView(item.application, {
+            customerMap,
+            currentWorkerId: workerId,
+          }),
+        }))
+      );
+
+      const payload = {
+        matches: result.matches,
+        created,
+        skipped: result.skipped,
+        unmatched: result.unmatched,
+        message:
+          created.length === 0
+            ? result.matches.length === 0
+              ? "No customer profiles matched this job."
+              : "Matched profiles found but no new jobs were created (duplicates or errors)."
+            : `Created ${created.length} job${created.length !== 1 ? "s" : ""} across matching customers.`,
+      };
+
+      res.status(created.length > 0 ? 201 : 200).json(payload);
+    } catch (err) {
+      if (err.message?.includes("OpenAI is not configured")) {
+        return res.status(503).json({ error: err.message });
+      }
+      if (err.message?.includes("Auto-match job upload is not enabled")) {
+        return res.status(403).json({ error: err.message });
+      }
+      throw err;
+    }
   })
 );
 

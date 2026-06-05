@@ -23,5 +23,6 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS hourly_rate_range TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS salary_range TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS citizenship TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS nationality TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS can_auto_match_upload BOOLEAN NOT NULL DEFAULT false;
 
 NOTIFY pgrst, 'reload schema';
