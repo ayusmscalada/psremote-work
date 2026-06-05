@@ -23,6 +23,13 @@ function parseMatchResponse(content, validCustomerIds) {
     throw new Error("OpenAI returned invalid JSON for job matching");
   }
 
+  if (parsed.eligible === false) {
+    const reason =
+      String(parsed.rejectReason || "").trim() ||
+      "Job is not eligible: only fully remote roles without security clearance requirements are allowed.";
+    return { eligible: false, rejectReason: reason, matches: [] };
+  }
+
   const rawMatches = Array.isArray(parsed.matches) ? parsed.matches : [];
   const validIds = new Set(validCustomerIds);
   const minScore = Number(process.env.OPENAI_MATCH_MIN_SCORE) || DEFAULT_MIN_SCORE;
@@ -45,7 +52,7 @@ function parseMatchResponse(content, validCustomerIds) {
   }
 
   matches.sort((a, b) => b.score - a.score);
-  return matches;
+  return { eligible: true, matches };
 }
 
 export async function matchJobToCustomerProfiles(job, customers) {
@@ -75,16 +82,24 @@ ${JSON.stringify(candidates, null, 2)}
 
 Return JSON with this exact shape:
 {
+  "eligible": <boolean>,
+  "rejectReason": "<string or empty>",
   "matches": [
     { "customerId": <number>, "score": <0-100>, "rationale": "<short reason>" }
   ]
 }
 
-Rules:
+Eligibility (check BEFORE matching):
+- Set eligible to false and matches to [] if the job is NOT a remote role (on-site, hybrid, or unclear location that is not fully remote).
+- Set eligible to false and matches to [] if the job REQUIRES security clearance (e.g. clearance required, secret/top secret, government clearance, must be a U.S. citizen for clearance, etc.).
+- Only proceed to profile matching when the job is fully remote AND does not require security clearance.
+- When rejecting, set rejectReason to a short explanation (e.g. "On-site role" or "Requires active security clearance").
+
+Matching rules (only when eligible is true):
 - Include every customer with score >= ${minScore} whose tech stack and background fit the job.
 - One job can match several customers.
 - score reflects fit strength (tech stack alignment, seniority, domain).
-- If no profile fits well, return an empty matches array.`;
+- If no profile fits well, return eligible true with an empty matches array.`;
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -100,7 +115,7 @@ Rules:
         {
           role: "system",
           content:
-            "You are a recruiting assistant that maps job postings to candidate customer profiles. Respond with valid JSON only.",
+            "You are a recruiting assistant that maps job postings to candidate customer profiles. Only allow fully remote jobs with no security clearance requirement. Reject on-site, hybrid, and clearance-required roles. Respond with valid JSON only.",
         },
         { role: "user", content: userPrompt },
       ],
@@ -118,5 +133,9 @@ Rules:
     throw new Error("OpenAI returned an empty matching response");
   }
 
-  return parseMatchResponse(content, customers.map((c) => c.id));
+  const result = parseMatchResponse(content, customers.map((c) => c.id));
+  if (!result.eligible) {
+    throw new Error(result.rejectReason);
+  }
+  return result.matches;
 }

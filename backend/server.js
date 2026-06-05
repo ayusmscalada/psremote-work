@@ -720,7 +720,10 @@ app.post(
       if (err.message?.includes("Auto-match job upload is not enabled")) {
         return res.status(403).json({ error: err.message });
       }
-      throw err;
+      if (err.message?.includes("OpenAI request failed")) {
+        return res.status(502).json({ error: err.message });
+      }
+      return res.status(400).json({ error: err.message });
     }
   })
 );
