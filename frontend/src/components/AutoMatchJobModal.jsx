@@ -18,17 +18,18 @@ export default function AutoMatchJobModal({ token, onClose, onSaved }) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function runAutoMatch(forceAccept = false) {
     setError("");
     setSubmitting(true);
-    setResult(null);
+    if (!forceAccept) {
+      setResult(null);
+    }
 
     try {
       const response = await apiFetch("/worker/applications/auto-match", {
         method: "POST",
         token,
-        body: JSON.stringify({ ...form, bidStatus: "not_yet" }),
+        body: JSON.stringify({ ...form, bidStatus: "not_yet", forceAccept }),
       });
       setResult(response);
       if (response.created?.length > 0) {
@@ -40,6 +41,25 @@ export default function AutoMatchJobModal({ token, onClose, onSaved }) {
       setSubmitting(false);
     }
   }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    await runAutoMatch(false);
+  }
+
+  async function handleForceAccept() {
+    if (
+      !window.confirm(
+        `AI blocked this job:\n\n${result?.rejectReason}\n\nAccept anyway and match to customer profiles?`
+      )
+    ) {
+      return;
+    }
+    await runAutoMatch(true);
+  }
+
+  const isBlocked = Boolean(result?.blocked);
+  const isComplete = Boolean(result?.created?.length > 0);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -66,6 +86,7 @@ export default function AutoMatchJobModal({ token, onClose, onSaved }) {
               onChange={(e) => updateField("jobLink", e.target.value)}
               placeholder="https://..."
               required
+              disabled={submitting}
             />
           </label>
 
@@ -77,6 +98,7 @@ export default function AutoMatchJobModal({ token, onClose, onSaved }) {
               onChange={(e) => updateField("jobTitle", e.target.value)}
               placeholder="e.g. Software Engineer"
               required
+              disabled={submitting}
             />
           </label>
 
@@ -88,6 +110,7 @@ export default function AutoMatchJobModal({ token, onClose, onSaved }) {
               placeholder="Paste the full job description for best matching..."
               rows={5}
               required
+              disabled={submitting}
             />
           </label>
 
@@ -99,10 +122,22 @@ export default function AutoMatchJobModal({ token, onClose, onSaved }) {
               onChange={(e) => updateField("companyName", e.target.value)}
               placeholder="e.g. Acme Corp"
               required
+              disabled={submitting}
             />
           </label>
 
-          {result && (
+          {isBlocked && (
+            <div className="auto-match-blocked">
+              <p className="auto-match-blocked-title">AI blocked this job</p>
+              <p className="card-meta">{result.rejectReason}</p>
+              <p className="field-hint">
+                You can still accept it anyway. Profile matching will run without the
+                remote / security clearance check.
+              </p>
+            </div>
+          )}
+
+          {result && !isBlocked && (
             <div className="auto-match-result">
               <p className="card-meta">{result.message}</p>
               {result.created?.length > 0 && (
@@ -127,7 +162,7 @@ export default function AutoMatchJobModal({ token, onClose, onSaved }) {
                   </ul>
                 </>
               )}
-              {result.matches?.length === 0 && (
+              {result.matches?.length === 0 && !result.created?.length && (
                 <p className="card-meta">No profiles met the minimum fit score.</p>
               )}
             </div>
@@ -135,15 +170,27 @@ export default function AutoMatchJobModal({ token, onClose, onSaved }) {
 
           <div className="modal-actions">
             <button type="button" className="btn-action" onClick={onClose} disabled={submitting}>
-              {result?.created?.length > 0 ? "Close" : "Cancel"}
+              {isComplete ? "Close" : "Cancel"}
             </button>
-            <button
-              type="submit"
-              className="btn-action btn-primary-sm"
-              disabled={submitting || result?.created?.length > 0}
-            >
-              {submitting ? "Matching..." : "Match & Allocate"}
-            </button>
+            {isBlocked && (
+              <button
+                type="button"
+                className="btn-action btn-primary-sm auto-match-force-btn"
+                onClick={handleForceAccept}
+                disabled={submitting}
+              >
+                {submitting ? "Accepting..." : "Accept anyway"}
+              </button>
+            )}
+            {!isBlocked && !isComplete && (
+              <button
+                type="submit"
+                className="btn-action btn-primary-sm"
+                disabled={submitting}
+              >
+                {submitting ? "Matching..." : "Match & Allocate"}
+              </button>
+            )}
           </div>
         </form>
       </div>

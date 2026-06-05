@@ -3,7 +3,12 @@ import { createApplication } from "../db/applications.js";
 import { findUserById } from "../db/users.js";
 import { matchJobToCustomerProfiles } from "./jobProfileMatch.js";
 
-export async function autoAllocateJobToCustomers({ workerId, jobData, allowedCustomerIds }) {
+export async function autoAllocateJobToCustomers({
+  workerId,
+  jobData,
+  allowedCustomerIds,
+  forceAccept = false,
+}) {
   const worker = await findUserById(workerId);
   if (!worker || worker.role !== "worker") {
     throw new Error("Worker not found");
@@ -24,7 +29,20 @@ export async function autoAllocateJobToCustomers({ workerId, jobData, allowedCus
     throw new Error("No allowed customers to match against");
   }
 
-  const matches = await matchJobToCustomerProfiles(jobData, customers);
+  const matchResult = await matchJobToCustomerProfiles(jobData, customers, { forceAccept });
+  if (matchResult.blocked) {
+    return {
+      blocked: true,
+      rejectReason: matchResult.rejectReason,
+      forced: false,
+      matches: [],
+      created: [],
+      skipped: [],
+      unmatched: [],
+    };
+  }
+
+  const matches = matchResult.matches;
   const customerById = new Map(customers.map((c) => [c.id, c]));
 
   const created = [];
@@ -68,6 +86,8 @@ export async function autoAllocateJobToCustomers({ workerId, jobData, allowedCus
     }));
 
   return {
+    blocked: false,
+    forced: forceAccept,
     matches: matches.map((m) => ({
       ...m,
       customerUsername: customerById.get(m.customerId)?.username,

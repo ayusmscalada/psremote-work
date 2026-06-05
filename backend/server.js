@@ -675,12 +675,27 @@ app.post(
       });
     }
 
+    const forceAccept = Boolean(req.body.forceAccept);
+
     try {
       const result = await autoAllocateJobToCustomers({
         workerId,
         jobData: parsed.data,
         allowedCustomerIds,
+        forceAccept,
       });
+
+      if (result.blocked) {
+        return res.status(200).json({
+          blocked: true,
+          rejectReason: result.rejectReason,
+          message: result.rejectReason,
+          matches: [],
+          created: [],
+          skipped: [],
+          unmatched: [],
+        });
+      }
 
       const customers = (await getUsersByRole("customer")).filter((c) =>
         allowedCustomerIds.includes(c.id)
@@ -700,6 +715,8 @@ app.post(
       );
 
       const payload = {
+        blocked: false,
+        forced: result.forced,
         matches: result.matches,
         created,
         skipped: result.skipped,
@@ -709,7 +726,9 @@ app.post(
             ? result.matches.length === 0
               ? "No customer profiles matched this job."
               : "Matched profiles found but no new jobs were created (duplicates or errors)."
-            : `Created ${created.length} job${created.length !== 1 ? "s" : ""} across matching customers.`,
+            : result.forced
+              ? `Force-accepted: created ${created.length} job${created.length !== 1 ? "s" : ""} across matching customers.`
+              : `Created ${created.length} job${created.length !== 1 ? "s" : ""} across matching customers.`,
       };
 
       res.status(created.length > 0 ? 201 : 200).json(payload);
